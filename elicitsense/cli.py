@@ -183,6 +183,65 @@ def cmd_eval_extract(args) -> None:
           f"type agreement {s['type_agreement']:.2f}  |  uncertainty agreement {s['uncertainty_agreement']:.2f}")
 
 
+def _meeting_dirs(runs: Path) -> list[Path]:
+    dirs = [p.parent for p in runs.glob("*/requirements.json")]
+    meta = {d: _read(d / "requirements.json")["meeting"] for d in dirs}
+    return sorted(dirs, key=lambda d: (meta[d].get("date", ""), meta[d]["id"]))
+
+
+def cmd_merge(args) -> None:
+    from .llm import LLMError
+    from .merge import apply_links, empty_register, finalise, link_meeting
+
+    register = empty_register()
+    for d in _meeting_dirs(Path(args.runs)):
+        result, transcript = _read(d / "requirements.json"), _read(d / "segments.json")
+        try:
+            linking, meta = link_meeting(register, result, transcript, args.provider, args.llm)
+        except LLMError as e:
+            sys.exit(f"merge failed on {d.name}: {e}")
+        except Exception as e:
+            if (message := _api_error_message(e)) is None:
+                raise
+            sys.exit(f"merge failed on {d.name}: {message}")
+        apply_links(register, result, linking)
+        register["llm"].append({"meeting": result["meeting"]["id"], **meta})
+    out = finalise(register)
+    _write(Path(args.out), out)
+
+    items = {i["id"]: i for i in out["requirements"]}
+    print(f"\nactive requirements ({len(out['active'])}):")
+    for rid in out["active"]:
+        print(f"  {rid}  [{items[rid]['status']}]  {items[rid]['statement'][:80]}")
+    print("\nrelations:")
+    for r in out["relations"]:
+        if r["kind"] != "same":
+            extra = f" -> {r['new_status']}" if r.get("new_status") else ""
+            print(f"  {r['from']} {r['kind']} {r['to']}{extra}  ({r['explanation'][:70]})")
+    print(f"\nopen conflicts: {len(out['open_conflicts'])}  |  dropped links: {len(out['dropped_links'])}")
+
+
+def cmd_eval_merge(args) -> None:
+    from .evaluate import score_meeting, score_register
+
+    gold = _read(Path(args.gold))
+    register = _read(Path(args.register))
+    runs = Path(args.register).parent
+    reports = [score_meeting(_read(d / "requirements.json"), _read(d / "segments.json")["segments"], gold)
+               for d in _meeting_dirs(runs)]
+    s = score_register(register, reports, gold)
+    for row in s["gold_relations"]:
+        print(f"  {row['verdict']:<10} {row['from']} {row['kind']} {row['to']}"
+              + (f"  (found as {row['found_kind']})" if row["found_kind"] not in (None, row["kind"]) else ""))
+    for row in s["status_changes"]:
+        print(f"  {'OK' if row['ok'] else 'WRONG':<10} {row['requirement']} status {row['status']} (register: {row['found']})")
+    for row in s["spurious"]:
+        print(f"  SPURIOUS   {row['from']} {row['kind']} {row['to']}  ({row['explanation'][:60]})")
+    print(f"\nrelations: recall {s['recall']:.2f} exact kind, {s['recall_any']:.2f} any kind  |  "
+          f"precision {s['precision']:.2f}  |  status changes {s['status_ok']}/{len(s['status_changes'])}  |  "
+          f"open conflicts {len(register['open_conflicts'])}")
+
+
 def main(argv: list[str] | None = None) -> None:
     load_dotenv(Path(".env"))
     load_dotenv(PROJECT_ROOT / ".env")
@@ -236,6 +295,16 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("runs")
     s.add_argument("gold")
     s.set_defaults(func=cmd_eval_extract)
+
+    s = sub.add_parser("merge", parents=[llm_flags], help="merge all meetings in a runs folder into one register")
+    s.add_argument("runs")
+    s.add_argument("-o", "--out", required=True)
+    s.set_defaults(func=cmd_merge)
+
+    s = sub.add_parser("eval-merge", help="score register relations and status changes against gold labels")
+    s.add_argument("register")
+    s.add_argument("gold")
+    s.set_defaults(func=cmd_eval_merge)
 
     args = p.parse_args(argv)
     args.func(args)

@@ -156,7 +156,7 @@ def test_load_dotenv_does_not_override(tmp_path, monkeypatch):
 
 
 def test_resolve_provider(monkeypatch):
-    from elicitsense.extract import resolve_provider
+    from elicitsense.llm import resolve_provider
 
     for var in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY"):
         monkeypatch.delenv(var, raising=False)
@@ -176,3 +176,71 @@ def test_assemble_without_cues_never_flags():
     result = assemble(transcript, extraction, None)
     assert result["cues_enabled"] is False
     assert not result["requirements"][0]["uncertainty"]["flag"]
+
+
+def _result(meeting, reqs):
+    return {"meeting": {"id": meeting}, "requirements": [
+        {"id": rid, "type": "functional", "statement": rid, "status": status,
+         "evidence": [{"segment_id": "S001", "speaker": "OWNER", "quote": rid}],
+         "uncertainty": {"flag": False}}
+        for rid, status in reqs
+    ]}
+
+
+def test_apply_links_tracks_supersession_conflicts_and_status():
+    from elicitsense.merge import Link, Linking, apply_links, empty_register, finalise
+
+    L = lambda n, rel, t="", st="": Link(new_id=n, relation=rel, target_id=t, new_status=st, explanation="x")
+    reg = empty_register()
+    apply_links(reg, _result("m1", [("R1", "proposed"), ("R2", "proposed")]),
+                Linking(links=[L("R1", "new"), L("R2", "new")]))
+    apply_links(reg, _result("m2", [("N1", "superseded"), ("N2", "confirmed"), ("N3", "proposed"), ("N5", "proposed")]),
+                Linking(links=[L("N1", "conflicts", "R1"), L("N2", "supersedes", "N1"), L("N2", "refines", "R1"),
+                               L("N3", "conflicts", "R2"), L("N5", "new"), L("N5", "refines", "NOPE")]))
+    mid = finalise(reg)
+    assert [(c["from"], c["to"]) for c in mid["open_conflicts"]] == [("N3", "R2")]
+    assert reg["items"]["N1"]["superseded_by"] == "N2"
+    assert [d["reason"] for d in mid["dropped_links"]] == ["unknown or self target"]
+
+    apply_links(reg, _result("m3", [("M1", "confirmed"), ("M2", "deferred")]),
+                Linking(links=[L("M1", "supersedes", "R2"), L("M2", "status_change", "N5", "deferred")]))
+    out = finalise(reg)
+    assert out["open_conflicts"] == []
+    assert reg["items"]["N5"]["status"] == "deferred"
+    assert reg["items"]["M2"]["merged_into"] == "N5"
+    assert out["active"] == ["R1", "N2", "N3", "N5", "M1"]
+
+
+def test_score_register_maps_splits_and_flags_spurious():
+    from elicitsense.evaluate import score_register
+
+    reports = [{"matched": [{"pred": "R1", "gold": "G1"}, {"pred": "N2", "gold": "G2"}, {"pred": "N3", "gold": "G3"}],
+                "splits": [{"pred": "N2b", "gold": "G2"}]}]
+    register = {
+        "relations": [
+            {"from": "N2b", "kind": "refines", "to": "R1", "explanation": ""},
+            {"from": "N2", "kind": "refines", "to": "N2b", "explanation": ""},
+            {"from": "N3", "kind": "refines", "to": "R1", "explanation": ""},
+            {"from": "N3", "kind": "same", "to": "R1", "explanation": ""},
+        ],
+        "requirements": [{"id": "N3", "status": "deferred"}],
+    }
+    gold = {"relations": [{"from": "G2", "kind": "refines", "to": "G1"}, {"from": "G3", "kind": "supersedes", "to": "G1"}],
+            "status_changes": [{"requirement": "G3", "status": "deferred"}]}
+    s = score_register(register, reports, gold)
+    assert [r["verdict"] for r in s["gold_relations"]] == ["FOUND", "WRONG-KIND"]
+    assert s["spurious"] == [] and s["precision"] == 1.0
+    assert s["status_ok"] == 1
+
+
+def test_confirmed_restatement_reinstates_superseded_item():
+    from elicitsense.merge import Link, Linking, apply_links, empty_register
+
+    L = lambda n, rel, t="": Link(new_id=n, relation=rel, target_id=t, new_status="", explanation="x")
+    reg = empty_register()
+    apply_links(reg, _result("m1", [("R1", "confirmed")]), Linking(links=[L("R1", "new")]))
+    apply_links(reg, _result("m2", [("N1", "superseded"), ("N2", "confirmed")]),
+                Linking(links=[L("N1", "supersedes", "R1"), L("N2", "same", "R1")]))
+    assert reg["items"]["R1"]["status"] == "confirmed"
+    assert reg["items"]["R1"]["superseded_by"] is None
+    assert any(h["change"] == "reinstated by N2" for h in reg["items"]["R1"]["history"])

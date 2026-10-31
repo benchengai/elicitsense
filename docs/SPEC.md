@@ -82,7 +82,7 @@ recording ──► transcribe (faster-whisper, local, word timestamps)
                  │
           verify (quote must match its cited segment) ──► requirements.json
                  │
-          merge across meetings (match + relation) ──► register (SQLite)
+          merge across meetings (match + relation) ──► register (JSON; SQLite with the web UI)
                  │
        ┌─────────┼──────────────┐
     web UI     Q&A agent      export
@@ -146,10 +146,10 @@ Metrics on the evaluation page:
 
 | | Scope | Done when |
 |---|---|---|
-| M0 | Scripts, gold labels, synthetic audio | 3 meetings render to WAV with ground-truth turns |
-| M1 | CLI: transcribe → cues → extract → verify | `requirements.json` for meeting 1 with verified evidence |
-| M2 | Cross-meeting merge and register | conflicts between meeting 1 and 2 detected |
-| M3 | Evaluation script and report | metrics computed against gold |
+| M0 ✓ | Scripts, gold labels, synthetic audio | 3 meetings render to WAV with ground-truth turns |
+| M1 ✓ | CLI: transcribe → cues → extract → verify | `requirements.json` for meeting 1 with verified evidence |
+| M2 ✓ | Cross-meeting merge and register | conflicts between meeting 1 and 2 detected |
+| M3 | Evaluation script and report | metrics computed against gold (scripts done; report page pending) |
 | M4 | Web UI: register, synced player, review actions | demo runs locally |
 | M5 | Q&A with cited answers, export | answers cite segments; Jira CSV imports |
 | M6 | Demo mode and deploy | static demo on Vercel, no API key needed |

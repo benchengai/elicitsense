@@ -8,15 +8,14 @@ Claude (Anthropic) and GPT (OpenAI) share the same prompt, schema and checks.
 
 from __future__ import annotations
 
-import os
 from typing import Literal
 
 from pydantic import BaseModel
 
 from . import quality
+from .llm import LLMError as ExtractionError
+from .llm import complete_json
 from .verify import quote_matches
-
-DEFAULT_MODELS = {"anthropic": "claude-opus-5-5", "openai": "gpt-6.1-sol"}
 
 SYSTEM = """You are a requirements analyst. You read the transcript of one requirements \
 elicitation meeting and extract the software requirements that participants stated, \
@@ -38,11 +37,16 @@ requirements whose quotes do not match are discarded.
 analyst only when the analyst proposed it.
 - status: "confirmed" when the client side explicitly agreed in this meeting, \
 "open_question" when it was raised but not decided, "deferred" when it was explicitly \
-postponed, otherwise "proposed".
+postponed, "superseded" when it was proposed and then replaced by a different version \
+later in this same meeting, otherwise "proposed".
+- Keep superseded proposals as their own requirement, alongside the version that \
+replaced them, so the change is recorded.
 - type: "functional", "non_functional" (performance, usability, accessibility and other \
 quality attributes) or "constraint".
 - open_questions: questions raised in this meeting and left unresolved.
 - Do not describe or judge anyone's emotions."""
+
+STATUSES = ("proposed", "confirmed", "open_question", "deferred", "superseded")
 
 SCHEMA = {
     "type": "object",
@@ -60,7 +64,7 @@ SCHEMA = {
                     "statement": {"type": "string"},
                     "type": {"type": "string", "enum": ["functional", "non_functional", "constraint"]},
                     "stakeholder": {"type": "string"},
-                    "status": {"type": "string", "enum": ["proposed", "confirmed", "open_question", "deferred"]},
+                    "status": {"type": "string", "enum": list(STATUSES)},
                     "rationale": {"type": "string"},
                     "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
                     "evidence": {
@@ -103,7 +107,7 @@ class Candidate(BaseModel):
     statement: str
     type: Literal["functional", "non_functional", "constraint"]
     stakeholder: str
-    status: Literal["proposed", "confirmed", "open_question", "deferred"]
+    status: Literal["proposed", "confirmed", "open_question", "deferred", "superseded"]
     rationale: str
     acceptance_criteria: list[str]
     evidence: list[Evidence]
@@ -119,10 +123,6 @@ class Extraction(BaseModel):
     open_questions: list[OpenQuestion]
 
 
-class ExtractionError(RuntimeError):
-    pass
-
-
 def _fmt_time(t: float) -> str:
     return f"{int(t // 60):02d}:{t % 60:04.1f}"
 
@@ -135,74 +135,9 @@ def render_transcript(transcript: dict) -> str:
     return "\n".join(lines)
 
 
-def resolve_provider(provider: str) -> str:
-    """'auto' picks whichever provider has a key configured, preferring Anthropic."""
-    if provider != "auto":
-        return provider
-    if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
-        return "anthropic"
-    if os.environ.get("OPENAI_API_KEY"):
-        return "openai"
-    return "anthropic"
-
-
-def _call_anthropic(prompt: str, model: str) -> tuple[str, dict]:
-    import anthropic
-
-    response = anthropic.Anthropic().beta.messages.create(
-        model=model,
-        max_tokens=16000,
-        betas=["server-side-fallback-2026-07-01"],
-        fallbacks="default",
-        output_config={"effort": "high", "format": {"type": "json_schema", "schema": SCHEMA}},
-        system=SYSTEM,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    if response.stop_reason == "refusal":
-        raise ExtractionError(f"model declined the request ({response.stop_details})")
-    if response.stop_reason == "max_tokens":
-        raise ExtractionError("output hit max_tokens before the JSON was complete")
-    text = next(b.text for b in response.content if b.type == "text")
-    return text, {
-        "provider": "anthropic",
-        "model": response.model,
-        "request_id": response._request_id,
-        "input_tokens": response.usage.input_tokens,
-        "output_tokens": response.usage.output_tokens,
-    }
-
-
-def _call_openai(prompt: str, model: str) -> tuple[str, dict]:
-    import openai
-
-    response = openai.OpenAI().responses.create(
-        model=model,
-        input=[
-            {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": prompt},
-        ],
-        text={"format": {"type": "json_schema", "name": "requirements_extraction", "schema": SCHEMA, "strict": True}},
-    )
-    if response.status == "incomplete":
-        raise ExtractionError(f"response incomplete: {response.incomplete_details}")
-    for item in response.output:
-        if item.type == "message":
-            for part in item.content:
-                if part.type == "refusal":
-                    raise ExtractionError(f"model declined the request ({part.refusal})")
-    return response.output_text, {
-        "provider": "openai",
-        "model": response.model,
-        "request_id": response._request_id,
-        "input_tokens": response.usage.input_tokens,
-        "output_tokens": response.usage.output_tokens,
-    }
-
-
 def call_model(transcript: dict, provider: str = "auto", model: str | None = None) -> tuple[Extraction, dict]:
-    provider = resolve_provider(provider)
-    call = {"anthropic": _call_anthropic, "openai": _call_openai}[provider]
-    text, meta = call(render_transcript(transcript), model or DEFAULT_MODELS[provider])
+    text, meta = complete_json(SYSTEM, render_transcript(transcript), SCHEMA, "requirements_extraction",
+                               provider, model)
     return Extraction.model_validate_json(text), meta
 
 

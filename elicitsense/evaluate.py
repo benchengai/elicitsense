@@ -87,3 +87,53 @@ def summarise(reports: list[dict]) -> dict:
         "type_agreement": sum(m["type_ok"] for m in pairs) / len(pairs) if pairs else 0.0,
         "uncertainty_agreement": sum(m["uncertainty_ok"] for m in pairs) / len(pairs) if pairs else 0.0,
     }
+
+
+SCORED_KINDS = {"refines", "supersedes", "conflicts"}
+
+
+def score_register(register: dict, reports: list[dict], gold: dict) -> dict:
+    """Score cross-meeting relations and status changes, mapping register ids to gold ids
+    through the per-meeting pairing (splits map to their parent gold item)."""
+    to_gold = {}
+    for r in reports:
+        to_gold.update({m["pred"]: m["gold"] for m in r["matched"]})
+        to_gold.update({sp["pred"]: sp["gold"] for sp in r["splits"]})
+
+    predicted = [r for r in register["relations"] if r["kind"] in SCORED_KINDS]
+    gold_pairs = {(g["from"], g["to"]) for g in gold["relations"]}
+
+    rows = []
+    for g in gold["relations"]:
+        kinds = {p["kind"] for p in predicted
+                 if to_gold.get(p["from"]) == g["from"] and to_gold.get(p["to"]) == g["to"]}
+        found = g["kind"] if g["kind"] in kinds else (sorted(kinds)[0] if kinds else None)
+        verdict = "FOUND" if found == g["kind"] else ("WRONG-KIND" if found else "MISSED")
+        rows.append({**g, "found_kind": found, "verdict": verdict})
+
+    spurious, correct = [], 0
+    for p in predicted:
+        a, b = to_gold.get(p["from"]), to_gold.get(p["to"])
+        if a and a == b:
+            continue  # link between splits of one gold item
+        if (a, b) in gold_pairs or (b, a) in gold_pairs:
+            correct += 1
+        else:
+            spurious.append(p)
+
+    items = {i["id"]: i for i in register["requirements"]}
+    status_rows = []
+    for sc in gold.get("status_changes", []):
+        found = sorted({i["status"] for rid, i in items.items() if to_gold.get(rid) == sc["requirement"]})
+        status_rows.append({**sc, "found": found, "ok": sc["status"] in found})
+
+    scored = correct + len(spurious)
+    return {
+        "gold_relations": rows,
+        "spurious": spurious,
+        "recall": sum(r["verdict"] == "FOUND" for r in rows) / len(rows) if rows else 0.0,
+        "recall_any": sum(r["verdict"] != "MISSED" for r in rows) / len(rows) if rows else 0.0,
+        "precision": correct / scored if scored else 0.0,
+        "status_changes": status_rows,
+        "status_ok": sum(r["ok"] for r in status_rows),
+    }
