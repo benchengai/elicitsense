@@ -6,3 +6,4 @@ __pycache__/
 # Synthetic audio is reproducible with `elicitsense synth`; keep it out of git.
 data/audio/
 runs/
+.DS_Store

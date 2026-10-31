@@ -1,21 +1,22 @@
-"""Extract requirements from one meeting transcript with Claude, then verify them.
+"""Extract requirements from one meeting transcript with an LLM, then verify them.
 
 The model only proposes requirements and cites evidence. Everything that has
 to be trustworthy is done deterministically afterwards: quote verification,
-uncertainty cues, quality checks and ids.
+uncertainty cues, quality checks and ids. That keeps the provider swappable:
+Claude (Anthropic) and GPT (OpenAI) share the same prompt, schema and checks.
 """
 
 from __future__ import annotations
 
+import os
 from typing import Literal
 
-import anthropic
 from pydantic import BaseModel
 
 from . import quality
 from .verify import quote_matches
 
-MODEL = "claude-opus-5-5"
+DEFAULT_MODELS = {"anthropic": "claude-opus-5-5", "openai": "gpt-6.1-sol"}
 
 SYSTEM = """You are a requirements analyst. You read the transcript of one requirements \
 elicitation meeting and extract the software requirements that participants stated, \
@@ -134,28 +135,74 @@ def render_transcript(transcript: dict) -> str:
     return "\n".join(lines)
 
 
-def call_model(transcript: dict, client: anthropic.Anthropic | None = None) -> tuple[Extraction, dict]:
-    client = client or anthropic.Anthropic()
-    response = client.beta.messages.create(
-        model=MODEL,
+def resolve_provider(provider: str) -> str:
+    """'auto' picks whichever provider has a key configured, preferring Anthropic."""
+    if provider != "auto":
+        return provider
+    if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
+        return "anthropic"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai"
+    return "anthropic"
+
+
+def _call_anthropic(prompt: str, model: str) -> tuple[str, dict]:
+    import anthropic
+
+    response = anthropic.Anthropic().beta.messages.create(
+        model=model,
         max_tokens=16000,
         betas=["server-side-fallback-2026-07-01"],
         fallbacks="default",
         output_config={"effort": "high", "format": {"type": "json_schema", "schema": SCHEMA}},
         system=SYSTEM,
-        messages=[{"role": "user", "content": render_transcript(transcript)}],
+        messages=[{"role": "user", "content": prompt}],
     )
     if response.stop_reason == "refusal":
         raise ExtractionError(f"model declined the request ({response.stop_details})")
     if response.stop_reason == "max_tokens":
         raise ExtractionError("output hit max_tokens before the JSON was complete")
     text = next(b.text for b in response.content if b.type == "text")
-    meta = {
+    return text, {
+        "provider": "anthropic",
         "model": response.model,
         "request_id": response._request_id,
         "input_tokens": response.usage.input_tokens,
         "output_tokens": response.usage.output_tokens,
     }
+
+
+def _call_openai(prompt: str, model: str) -> tuple[str, dict]:
+    import openai
+
+    response = openai.OpenAI().responses.create(
+        model=model,
+        input=[
+            {"role": "system", "content": SYSTEM},
+            {"role": "user", "content": prompt},
+        ],
+        text={"format": {"type": "json_schema", "name": "requirements_extraction", "schema": SCHEMA, "strict": True}},
+    )
+    if response.status == "incomplete":
+        raise ExtractionError(f"response incomplete: {response.incomplete_details}")
+    for item in response.output:
+        if item.type == "message":
+            for part in item.content:
+                if part.type == "refusal":
+                    raise ExtractionError(f"model declined the request ({part.refusal})")
+    return response.output_text, {
+        "provider": "openai",
+        "model": response.model,
+        "request_id": response._request_id,
+        "input_tokens": response.usage.input_tokens,
+        "output_tokens": response.usage.output_tokens,
+    }
+
+
+def call_model(transcript: dict, provider: str = "auto", model: str | None = None) -> tuple[Extraction, dict]:
+    provider = resolve_provider(provider)
+    call = {"anthropic": _call_anthropic, "openai": _call_openai}[provider]
+    text, meta = call(render_transcript(transcript), model or DEFAULT_MODELS[provider])
     return Extraction.model_validate_json(text), meta
 
 

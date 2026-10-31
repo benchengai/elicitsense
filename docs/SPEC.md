@@ -78,7 +78,7 @@ recording ──► transcribe (faster-whisper, local, word timestamps)
           segments.json ──► cues (text hedges + timing) ──► cues.json
                  │
                  ▼
-          extract (Claude, structured output) ──► candidates
+          extract (Claude or GPT, structured output) ──► candidates
                  │
           verify (quote must match its cited segment) ──► requirements.json
                  │
