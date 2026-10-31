@@ -1,0 +1,20 @@
+# id: m2
+# title: Follow-up: accounts, payments, reminders
+# date: 2026-03-09
+L001 ANALYST: Last week we covered booking, reminders and cancellations. Has anything changed since then?
+L002 OWNER: Yes. We talked about guest booking, but now I think patients should log in, so they can see their history.
+L003 FRONTDESK: {slow} Hmm... honestly, I'm not sure about that. A lot of our older patients won't want another password.
+L004 ANALYST: Could we allow both? Log in if you want, or book as a guest.
+L005 OWNER: Yes, that works. Guests can still book, and patients with an account can see their past appointments.
+L006 ANALYST: On payments, did you decide about the deposit?
+L007 OWNER: Yes. We'll take a twenty dollar deposit, for new patients only.
+L008 DEVLEAD: Will the deposit be refunded if they cancel?
+L009 OWNER: Only if they cancel more than twenty-four hours before.
+L010 FRONTDESK: About reminders. Many patients have told us they prefer email.
+L011 OWNER: Then send both. An email two days before, and the SMS the day before.
+L012 DEVLEAD: I checked ClinicDesk. They do have an API, but it's read-only for appointments.
+L013 OWNER: {slow} Oh. Um... so... the front desk would have to enter them twice? That's... not great.
+L014 ANALYST: We'll look at options and bring them to the next meeting.
+L015 FRONTDESK: One more thing. We need a waitlist, so if someone cancels, the next person gets offered the slot.
+L016 OWNER: {slow} Maybe. Let's... let's not promise that for the first version.
+L017 ANALYST: I'll mark the waitlist as a candidate for a later release.

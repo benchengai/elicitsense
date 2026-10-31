@@ -1,0 +1,17 @@
+# id: m3
+# title: Review: open items
+# date: 2026-03-16
+L001 ANALYST: Today we'll confirm the open items. First, ClinicDesk.
+L002 DEVLEAD: ClinicDesk can import a daily CSV file. We can export new bookings to it every night.
+L003 OWNER: Nightly is fine. Same-day bookings can be checked in the app.
+L004 ANALYST: Next, the waitlist.
+L005 OWNER: We'll leave the waitlist out of the first release.
+L006 FRONTDESK: That's fine, as long as it's on the list for later.
+L007 ANALYST: On performance, last time we said fast. Can we put a number on it?
+L008 DEVLEAD: How about this: the available times load in under two seconds on a phone connection.
+L009 OWNER: Two seconds sounds right.
+L010 ANALYST: And for accessibility?
+L011 OWNER: {slow} Um... I guess it should work with screen readers? I don't really know what the standard is.
+L012 ANALYST: I'd suggest WCAG 2.2 level AA. I'll send you a short summary.
+L013 OWNER: Okay, let's go with that.
+L014 ANALYST: Great. I'll update the requirements document and share it by Friday.

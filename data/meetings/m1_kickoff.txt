@@ -1,0 +1,28 @@
+# id: m1
+# title: Kickoff: Harbour Physio online booking
+# date: 2026-03-02
+# Fictional project. "..." renders as a 700 ms pause; {slow} renders the line at a slower rate.
+L001 ANALYST: Thanks for joining. Today I'd like to understand how bookings work now, and what you need from the new app.
+L002 OWNER: Sure. Right now patients phone the front desk, and we lose a lot of calls during busy hours.
+L003 FRONTDESK: Mondays are the worst. The phone rings nonstop between eight and ten.
+L004 ANALYST: So the main goal is online booking. Who should be able to book?
+L005 OWNER: Patients should be able to book an appointment online without creating an account. Just a name, a phone number and an email.
+L006 ANALYST: Should they pick a specific physio, or just a time?
+L007 OWNER: They should be able to choose a practitioner and see that practitioner's available times.
+L008 FRONTDESK: And we need to block out times ourselves, for staff meetings and leave.
+L009 ANALYST: What about reminders?
+L010 OWNER: Patients should get an SMS reminder the day before their appointment.
+L011 ANALYST: Do you want to take payments online?
+L012 OWNER: {slow} Um... I think... maybe a deposit? I'm not sure our patients would like paying upfront. We'd have to see.
+L013 ANALYST: Okay, I'll note that as an open question. What about cancellations?
+L014 FRONTDESK: People should be able to cancel online, but not less than twenty-four hours before the appointment.
+L015 OWNER: Yes, and if they cancel later than that, they should call us.
+L016 DEVLEAD: From our side, is there an existing system we need to connect to?
+L017 OWNER: We use ClinicDesk for patient records. The bookings should show up there automatically.
+L018 DEVLEAD: Do you know if ClinicDesk has an API?
+L019 OWNER: {slow} Uh... I believe so. Probably. I'd have to ask them.
+L020 ANALYST: How fast does the booking need to be?
+L021 OWNER: It just needs to be fast and easy to use, especially on phones.
+L022 DEVLEAD: Are there any rules about where the data is stored?
+L023 OWNER: Patient information has to stay in Australia. That's non-negotiable.
+L024 ANALYST: Great. I'll write this up, and we'll review it next week.
