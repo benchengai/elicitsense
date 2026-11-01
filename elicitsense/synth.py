@@ -23,6 +23,8 @@ DEFAULT_VOICES = {
     "OWNER": "Karen",
     "FRONTDESK": "Moira",
     "DEVLEAD": "Daniel",
+    "DISPATCH": "Rishi",
+    "ACCOUNTS": "Tessa",
 }
 NORMAL_RATE = 185  # words per minute
 SLOW_RATE = 140

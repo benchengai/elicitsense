@@ -1,0 +1,15 @@
+# id: f2
+# title: Follow-up: cutoff, payments, credit
+# date: 2026-04-13
+L001 ANALYST: I've shared last week's notes. Is there anything to change?
+L002 DISPATCH: Yes, the cutoff. We've started baking earlier, so orders for the next morning have to be in by noon, not two.
+L003 DISPATCH: And on the packing list, we need each café's delivery notes, like "leave it at the back door".
+L004 ANALYST: On payments, did you look at the card fees?
+L005 ACCOUNTS: Yes. We'll take card payments on the site, but the café pays a one point five percent surcharge.
+L006 OWNER: {slow} Hmm... I'm not sure cafés will like a surcharge... but okay, let's try it.
+L007 OWNER: About standing orders. Cafés need to change one day of a standing order up to the cutoff, say ten extra croissants for Saturday.
+L008 OWNER: And the product ratings, let's drop that. We don't need it.
+L009 ACCOUNTS: We also need a credit limit. If a café owes more than two thousand dollars, the site should block new orders.
+L010 DISPATCH: We can't just stop delivering. If a café gets no bread one morning, we lose them. Drivers should still deliver, and accounts can chase the money.
+L011 ANALYST: Let's leave the credit limit open for now and come back to it.
+L012 OWNER: One more thing. The site must be available from four in the morning every day, because that's when the first cafés order.

@@ -1,8 +1,8 @@
 """Command-line entry point.
 
-    elicitsense run data/meetings/m1_kickoff.txt         # synth → transcribe → cues → extract
-    elicitsense eval-cues runs/ data/gold/harbour_physio.json
-    elicitsense eval-extract runs/ data/gold/harbour_physio.json
+    elicitsense run data/projects/harbour_physio/m1_kickoff.txt   # synth → transcribe → cues → extract
+    elicitsense eval-extract runs/harbour_physio data/projects/harbour_physio/gold.json
+    elicitsense bench data/projects/harbour_physio -m openai:gpt-6.1-sol ollama:qwen3:8b
 """
 
 from __future__ import annotations
@@ -60,13 +60,19 @@ def _read(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _project(script_path: str) -> str:
+    """Meetings live in data/projects/<project>/; the folder name is the project id."""
+    return Path(script_path).resolve().parent.name
+
+
 def cmd_synth(args) -> None:
     from .synth import synthesize, write_turns
 
     script = parse_script(args.script)
-    wav = AUDIO_DIR / f"{script.id}.wav"
+    audio = AUDIO_DIR / _project(args.script)
+    wav = audio / f"{script.id}.wav"
     turns = synthesize(script, wav)
-    write_turns(turns, AUDIO_DIR / f"{script.id}.turns.json")
+    write_turns(turns, audio / f"{script.id}.turns.json")
     print(f"wrote {wav} ({turns[-1]['end']:.0f} s, {len(turns)} turns)")
 
 
@@ -110,8 +116,10 @@ def cmd_run(args) -> None:
     from .transcribe import transcribe
 
     script = parse_script(args.script)
-    run_dir = RUNS_DIR / script.id
-    wav, turns_path = AUDIO_DIR / f"{script.id}.wav", AUDIO_DIR / f"{script.id}.turns.json"
+    project = _project(args.script)
+    run_dir = RUNS_DIR / project / script.id
+    audio = AUDIO_DIR / project
+    wav, turns_path = audio / f"{script.id}.wav", audio / f"{script.id}.turns.json"
     if not wav.exists() or args.resynth:
         write_turns(synthesize(script, wav), turns_path)
         print(f"wrote {wav}")
@@ -171,6 +179,8 @@ def cmd_eval_extract(args) -> None:
             print(f"  {pair['gold']} = {pair['pred']}{marks}  {pair['pred_statement'][:80]}")
         for sp in report["splits"]:
             print(f"  {sp['gold']} + {sp['pred']} (split)  {sp['pred_statement'][:80]}")
+        for mn in report["mentions"]:
+            print(f"  {mn['gold']} ~ {mn['pred']} (mention)  {mn['pred_statement'][:80]}")
         for g in report["missed"]:
             print(f"  {g['id']} MISSED  {g['statement'][:80]}")
         for r in report["extra"]:
@@ -178,7 +188,8 @@ def cmd_eval_extract(args) -> None:
     s = summarise(reports)
     print(f"\nrequirements: precision {s['precision']:.2f} (strict 1:1 {s['strict_precision']:.2f})  "
           f"recall {s['recall']:.2f}  F1 {s['f1']:.2f}  "
-          f"(matched {s['matched']}, splits {s['splits']}, missed {s['missed']}, extra {s['extra']})")
+          f"(matched {s['matched']}, splits {s['splits']}, mentions {s['mentions']}, "
+          f"missed {s['missed']}, extra {s['extra']})")
     print(f"evidence verified: {s['evidence_validity']:.2f} of extracted items  |  "
           f"type agreement {s['type_agreement']:.2f}  |  uncertainty agreement {s['uncertainty_agreement']:.2f}")
 
@@ -239,7 +250,31 @@ def cmd_eval_merge(args) -> None:
         print(f"  SPURIOUS   {row['from']} {row['kind']} {row['to']}  ({row['explanation'][:60]})")
     print(f"\nrelations: recall {s['recall']:.2f} exact kind, {s['recall_any']:.2f} any kind  |  "
           f"precision {s['precision']:.2f}  |  status changes {s['status_ok']}/{len(s['status_changes'])}  |  "
-          f"open conflicts {len(register['open_conflicts'])}")
+          f"open conflicts: {s['open_conflicts_found']}/{s['open_conflicts_expected']} expected found, "
+          f"{s['open_conflicts_unexpected']} unexpected")
+
+
+def cmd_bench(args) -> None:
+    from .bench import bench, render_markdown
+
+    project = Path(args.project)
+    out = Path(args.out) if args.out else RUNS_DIR / "bench" / project.name
+    print(f"bench {project.name}: {len(args.models)} models x {args.runs} runs -> {out}")
+    try:
+        results = bench(project, args.models, args.runs, RUNS_DIR, out, args.workers,
+                        constrain_ids=not args.free_ids,
+                        extraction_from=Path(args.reuse_extraction) if args.reuse_extraction else None)
+    except Exception as e:
+        if (message := _api_error_message(e)) is None:
+            raise
+        sys.exit(f"bench stopped: {message} (finished runs are kept; rerun to resume)")
+    table = render_markdown(results)
+    print("\n" + table)
+    _write(out / "results.json", results)
+    if args.report:
+        Path(args.report).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.report).write_text(table, encoding="utf-8")
+        print(f"wrote {args.report}")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -248,9 +283,9 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="elicitsense")
     sub = p.add_subparsers(dest="cmd", required=True)
     llm_flags = argparse.ArgumentParser(add_help=False)
-    llm_flags.add_argument("--provider", choices=["auto", "anthropic", "openai"], default="auto",
-                           help="LLM provider for extraction; auto uses whichever key is configured")
-    llm_flags.add_argument("--llm", help="model id (defaults: claude-opus-5-5 / gpt-6.1-sol)")
+    llm_flags.add_argument("--provider", choices=["auto", "anthropic", "openai", "ollama"], default="auto",
+                           help="LLM provider; auto uses whichever API key is configured, ollama runs locally")
+    llm_flags.add_argument("--llm", help="model id (defaults: claude-opus-5-5 / gpt-6.1-sol / qwen3:8b)")
 
     s = sub.add_parser("synth", help="render a scripted meeting to WAV with macOS say")
     s.add_argument("script")
@@ -305,6 +340,21 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("register")
     s.add_argument("gold")
     s.set_defaults(func=cmd_eval_merge)
+
+    s = sub.add_parser("bench", help="compare models on extraction and merge for one project")
+    s.add_argument("project", help="project folder, e.g. data/projects/harbour_physio")
+    s.add_argument("-m", "--models", nargs="+", required=True,
+                   help="provider:model specs, e.g. openai:gpt-6.1-sol ollama:qwen3:8b; "
+                        "extract>merge routes the steps, e.g. openai:gpt-6-luna>openai:gpt-6.1-sol")
+    s.add_argument("--runs", type=int, default=3, help="full project runs per model")
+    s.add_argument("--workers", type=int, default=3, help="parallel API runs (local models run one at a time)")
+    s.add_argument("-o", "--out", help="output folder (default runs/bench/<project>)")
+    s.add_argument("--report", help="also write the markdown results table to this file")
+    s.add_argument("--free-ids", action="store_true",
+                   help="do not restrict merge link ids to the ids in the prompt (the M3 baseline)")
+    s.add_argument("--reuse-extraction", metavar="BENCH_DIR",
+                   help="reuse run k's extraction outputs from an earlier bench folder; only merge is called")
+    s.set_defaults(func=cmd_bench)
 
     args = p.parse_args(argv)
     args.func(args)

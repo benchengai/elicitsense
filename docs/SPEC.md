@@ -130,17 +130,35 @@ The flag reads "needs confirmation", listing the cues.
 
 ## 5. Evaluation
 
-The repository includes three scripted meetings about one fictional project,
-with gold labels: the requirements each meeting introduces, their evidence
-lines, which lines carry uncertainty, and how meeting 2 and 3 change meeting 1.
+Each project in `data/projects/` is a set of scripted meetings with gold
+labels: the requirements each meeting introduces, their evidence lines, which
+lines carry uncertainty, and how later meetings change earlier ones.
 
-Metrics on the evaluation page:
+- `harbour_physio` is the development set. Prompts were written and adjusted
+  against it, so its scores are optimistic.
+- `fernhill_bakery` is held out. Its scripts and gold labels were written
+  before any model was run on it, and prompts are not changed after seeing its
+  results. It also tests cases the development set lacks: a requirement
+  dropped outright, a conflict raised and argued within one meeting, and a
+  conflict that is still open after the last meeting.
+
+Metrics:
 
 - requirement extraction precision, recall, F1 (matched by evidence overlap,
   then manually spot-checked)
 - evidence validity rate (share of extracted items whose quote verifies)
 - uncertainty-flag precision and recall against gold
-- cross-meeting relation accuracy (refines / conflicts / supersedes)
+- cross-meeting relation recall and precision (refines / conflicts / supersedes)
+  and status changes
+- cost per project run (USD, from published per-token prices), latency, and
+  failed calls (invalid or truncated output)
+
+`elicitsense bench` runs the extraction and merge steps for several models,
+several times each, on fixed transcripts. Transcription and cues are computed
+once and shared, so differences come from the LLM alone. Results are reported
+as mean and range across runs. A spec `a>b` routes extraction and merge to
+different models, and `--reuse-extraction` re-runs only the merge step on
+earlier extraction outputs, for comparisons that change the merge alone.
 
 ## 6. Milestones
 
@@ -149,11 +167,11 @@ Metrics on the evaluation page:
 | M0 ✓ | Scripts, gold labels, synthetic audio | 3 meetings render to WAV with ground-truth turns |
 | M1 ✓ | CLI: transcribe → cues → extract → verify | `requirements.json` for meeting 1 with verified evidence |
 | M2 ✓ | Cross-meeting merge and register | conflicts between meeting 1 and 2 detected |
-| M3 | Evaluation script and report | metrics computed against gold (scripts done; report page pending) |
-| M4 | Web UI: register, synced player, review actions | demo runs locally |
-| M5 | Q&A with cited answers, export | answers cite segments; Jira CSV imports |
-| M6 | Demo mode and deploy | static demo on Vercel, no API key needed |
-| Later | Diarization adapter, role-played recordings, MCP server | |
+| M3 ✓ | Evaluation: model comparison (API and local open-weight), cost and latency, held-out project | report generated from bench runs on both projects ([docs/eval](eval/README.md)) |
+| M4 | Q&A agent over the register: retrieval and tool calls, every answer cites evidence | answer faithfulness scored against gold questions |
+| M5 | Minimal web UI: register, synced player, Q&A | demo runs locally |
+| M6 | Demo mode, export, deploy | static demo on Vercel, no API key needed; Jira CSV imports |
+| Later | LoRA fine-tune of a small open model on extraction, compared with API models; diarization adapter; role-played recordings; MCP server | |
 
 Demo mode serves outputs produced by real pipeline runs on the public demo
 meetings. It never serves hand-written outputs presented as model output.

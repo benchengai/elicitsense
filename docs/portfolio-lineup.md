@@ -12,6 +12,12 @@ emotion-category × SDLC-phase map.
 | 4 | SentiBench | Tools × Cross-phase (10, fragmented) | Evaluation harness: lexicon vs SE-specific vs LLM sentiment classifiers on SE benchmarks |
 | 5 | SprintWeather | Team health × Maintenance (0); intervention gap | Opt-in, self-reported, k-anonymous team pulse for retrospectives |
 
+Build order, aimed at AI engineering roles: ElicitSense first and in depth
+(evaluation, model comparison, Q&A agent), then SentiBench as an LLM
+evaluation project (LLMs against lexicon and SE-specific sentiment tools on
+published SE datasets, with cost and agreement analysis). Apps 2, 3 and 5
+wait until those two are finished.
+
 Shared rules for every demo:
 
 - Sample-data mode that works with no API key, in under 30 seconds.

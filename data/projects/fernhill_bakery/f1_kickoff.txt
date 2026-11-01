@@ -1,0 +1,21 @@
+# id: f1
+# title: Kickoff: Fernhill Bakery wholesale ordering
+# date: 2026-04-06
+# Fictional held-out project. "..." renders as a 700 ms pause; {slow} renders the line at a slower rate.
+L001 ANALYST: Thanks for having me. I'd like to understand how cafés order from you today, and what the new ordering site needs to do.
+L002 OWNER: About forty cafés phone or text their orders, and we write them on a whiteboard. Something goes wrong every week.
+L003 OWNER: We want each café to have its own login and place its orders online.
+L004 DISPATCH: Orders have to be in by two in the afternoon for delivery the next morning.
+L005 ANALYST: What should happen if a café orders after two?
+L006 DISPATCH: Then the site should offer the next delivery day after that instead.
+L007 OWNER: Cafés also want standing orders, the same order every weekday, so they don't have to order each day.
+L008 ACCOUNTS: For billing, each café gets one invoice a week, emailed every Monday.
+L009 ACCOUNTS: And the invoices have to end up in Xero. That's our accounting system.
+L010 ANALYST: How do cafés pay at the moment?
+L011 ACCOUNTS: {slow} Mostly bank transfer. Um... I think... maybe we should let them pay by card on the site too? I'm not sure the fees are worth it.
+L012 OWNER: The site has to work well on phones. Most café owners order at five in the morning, standing behind the counter.
+L013 DISPATCH: For us the key thing is a packing list. Right after the cutoff, we need a list of everything to bake, grouped by delivery route.
+L014 ANALYST: Should prices include GST?
+L015 ACCOUNTS: No. Show wholesale prices without GST, and add the GST on the invoice.
+L016 OWNER: {slow} And... maybe cafés could rate each product? I don't know... we'll see.
+L017 ANALYST: Thanks. I'll write this up, and we'll meet again next week.

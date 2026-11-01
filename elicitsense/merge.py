@@ -9,6 +9,7 @@ all computed here, not by the model.
 
 from __future__ import annotations
 
+import copy
 from typing import Literal
 
 from pydantic import BaseModel
@@ -107,9 +108,23 @@ def render_prompt(register: dict, result: dict, transcript: dict) -> str:
     return "\n".join(lines)
 
 
-def link_meeting(register: dict, result: dict, transcript: dict,
-                 provider: str = "auto", model: str | None = None) -> tuple[Linking, dict]:
-    text, meta = complete_json(SYSTEM, render_prompt(register, result, transcript), SCHEMA,
+def schema_for(register: dict, result: dict) -> dict:
+    """The link schema with ids restricted to those in the prompt, so constrained decoding
+    cannot invent an id or put a register id where a new requirement's id belongs."""
+    new_ids = [r["id"] for r in result["requirements"]]
+    if not new_ids:
+        return SCHEMA
+    schema = copy.deepcopy(SCHEMA)
+    fields = schema["properties"]["links"]["items"]["properties"]
+    fields["new_id"]["enum"] = new_ids
+    fields["target_id"]["enum"] = ["", *register["items"], *new_ids]
+    return schema
+
+
+def link_meeting(register: dict, result: dict, transcript: dict, provider: str = "auto",
+                 model: str | None = None, constrain_ids: bool = True) -> tuple[Linking, dict]:
+    schema = schema_for(register, result) if constrain_ids else SCHEMA
+    text, meta = complete_json(SYSTEM, render_prompt(register, result, transcript), schema,
                                "register_links", provider, model)
     return Linking.model_validate_json(text), meta
 

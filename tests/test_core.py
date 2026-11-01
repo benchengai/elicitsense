@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from elicitsense import quality
 from elicitsense.cues import compute_cues
 from elicitsense.extract import Candidate, Evidence, Extraction, assemble
@@ -20,11 +22,11 @@ def _words(text: str, start: float = 0.0, step: float = 0.3, pauses: dict[int, f
 
 
 def test_parse_scripts():
-    for path in sorted((ROOT / "data/meetings").glob("*.txt")):
+    for path in sorted((ROOT / "data/projects").glob("*/*.txt")):
         script = parse_script(path)
         assert script.lines, path
         assert all(line.id.startswith("L") for line in script.lines)
-    m1 = parse_script(ROOT / "data/meetings/m1_kickoff.txt")
+    m1 = parse_script(ROOT / "data/projects/harbour_physio/m1_kickoff.txt")
     assert m1.id == "m1"
     l012 = next(line for line in m1.lines if line.id == "L012")
     assert l012.slow and l012.text.startswith("Um...")
@@ -224,6 +226,7 @@ def test_score_register_maps_splits_and_flags_spurious():
             {"from": "N3", "kind": "same", "to": "R1", "explanation": ""},
         ],
         "requirements": [{"id": "N3", "status": "deferred"}],
+        "open_conflicts": [],
     }
     gold = {"relations": [{"from": "G2", "kind": "refines", "to": "G1"}, {"from": "G3", "kind": "supersedes", "to": "G1"}],
             "status_changes": [{"requirement": "G3", "status": "deferred"}]}
@@ -244,3 +247,76 @@ def test_confirmed_restatement_reinstates_superseded_item():
     assert reg["items"]["R1"]["status"] == "confirmed"
     assert reg["items"]["R1"]["superseded_by"] is None
     assert any(h["change"] == "reinstated by N2" for h in reg["items"]["R1"]["history"])
+
+
+def test_mentions_and_expected_open_conflicts_are_scored():
+    from elicitsense.evaluate import score_meeting, score_register
+
+    segments = [{"id": "S001", "source_line": "L001"}, {"id": "S002", "source_line": "L002"}]
+    gold = {
+        "requirements": [{"id": "G1", "meeting": "m2", "type": "functional", "uncertain": False,
+                          "statement": "a", "evidence": ["m2:L001"]}],
+        "mentions": [{"requirement": "G0", "meeting": "m2", "evidence": ["m2:L002"]}],
+        "relations": [],
+        "open_conflicts_after": [{"from": "G1", "to": "G0"}],
+    }
+    pred = lambda rid, seg: {"id": rid, "statement": rid, "type": "functional",
+                             "uncertainty": {"flag": False}, "evidence": [{"segment_id": seg}]}
+    result = {"meeting": {"id": "m2"}, "requirements": [pred("N1", "S001"), pred("N2", "S002")]}
+    report = score_meeting(result, segments, gold)
+    assert [m["gold"] for m in report["mentions"]] == ["G0"] and report["extra"] == []
+
+    reports = [report, {"matched": [{"pred": "R0", "gold": "G0"}], "splits": []}]
+    register = {"relations": [], "requirements": [],
+                "open_conflicts": [{"from": "N1", "to": "R0"}, {"from": "N2", "to": "N1"}]}
+    s = score_register(register, reports, gold)
+    assert s["open_conflicts_found"] == 1 and s["open_conflicts_unexpected"] == 1
+
+
+def test_model_spec_and_cost():
+    from elicitsense.llm import parse_model_spec
+    from elicitsense.pricing import cost_usd
+
+    assert parse_model_spec("ollama:qwen3:8b+think") == ("ollama", "qwen3:8b+think")
+    assert parse_model_spec("openai:gpt-6.1-sol") == ("openai", "gpt-6.1-sol")
+    with pytest.raises(ValueError):
+        parse_model_spec("gpt-6.1-sol")
+    # 1M uncached input at $2, 1M cached at $0.10, 1M output at $10 (dated snapshot id)
+    assert cost_usd("openai", "gpt-6.1-sol-2026-09-01", 2_000_000, 1_000_000, 1_000_000) == pytest.approx(12.10)
+    assert cost_usd("ollama", "qwen3:8b", 5000, 0, 5000) == 0.0
+    assert cost_usd("openai", "unlisted-model", 1, 0, 1) is None
+
+
+def test_bench_aggregate_counts_failures_and_keeps_their_cost():
+    from elicitsense.bench import aggregate, render_markdown
+
+    ok = {"ok": True, "req_recall": 1.0, "cost_usd": 0.02, "latency_s": 10.0,
+          "open_conflicts_found": 0, "open_conflicts_expected": 0, "open_conflicts_unexpected": 0}
+    rows = [ok, {**ok, "req_recall": 0.5, "cost_usd": 0.04},
+            {"ok": False, "cost_usd": 0.01, "latency_s": 4.0,
+             "error": {"step": "merge", "meeting": "m2", "message": "bad json"}}]
+    s = aggregate(rows)
+    assert s["failed"] == 1 and s["req_recall"]["mean"] == 0.75
+    assert s["cost_usd"]["max"] == 0.04 and s["cost_usd"]["min"] == 0.01
+    table = render_markdown({"project": "p", "runs_per_model": 3, "models": {"x:y": {"runs": rows, "summary": s}}})
+    assert "1 of 3" in table and "2 of 2" in table and "merge m2" in table
+
+
+def test_merge_schema_restricts_ids_to_the_prompt():
+    from elicitsense.merge import SCHEMA, empty_register, schema_for
+
+    reg = empty_register()
+    reg["items"] = {"REQ-m1-001": {}, "REQ-m1-002": {}}
+    fields = schema_for(reg, {"requirements": [{"id": "REQ-m2-001"}]})["properties"]["links"]["items"]["properties"]
+    assert fields["new_id"]["enum"] == ["REQ-m2-001"]
+    assert fields["target_id"]["enum"] == ["", "REQ-m1-001", "REQ-m1-002", "REQ-m2-001"]
+    assert "enum" not in SCHEMA["properties"]["links"]["items"]["properties"]["new_id"]
+    assert schema_for(reg, {"requirements": []}) is SCHEMA
+
+
+def test_bench_route_specs():
+    from elicitsense.bench import parse_route, slug
+
+    assert parse_route("openai:gpt-6-luna>openai:gpt-6.1-sol") == ("openai:gpt-6-luna", "openai:gpt-6.1-sol")
+    assert parse_route("ollama:qwen3:8b") == ("ollama:qwen3:8b", "ollama:qwen3:8b")
+    assert slug("ollama:qwen3:8b>openai:gpt-6.1-sol") == "ollama_qwen3_8b__openai_gpt-6.1-sol"

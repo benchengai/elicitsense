@@ -1,0 +1,14 @@
+# id: f3
+# title: Review: first release
+# date: 2026-04-20
+L001 ANALYST: Today I'd like to settle the open items for the first release. First, Xero.
+L002 DEVLEAD: Xero's API lets us create the invoices directly, so accounts won't have to type anything in.
+L003 OWNER: Good, let's do that.
+L004 ANALYST: Last time we said the site should work well on phones. Can we make that measurable?
+L005 DEVLEAD: The order page should load in under three seconds on a mobile connection.
+L006 OWNER: Yes, three seconds is fine.
+L007 ANALYST: And the credit limit?
+L008 OWNER: {slow} Um... I still haven't decided. I need to talk to accounts and dispatch together first.
+L009 ANALYST: Last thing. Do cafés need to see their order history?
+L010 OWNER: Yes, the last three months, so they can reorder quickly.
+L011 ANALYST: Great. I'll update the requirements and send them round by Friday.
