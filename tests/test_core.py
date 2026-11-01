@@ -320,3 +320,61 @@ def test_bench_route_specs():
     assert parse_route("openai:gpt-6-luna>openai:gpt-6.1-sol") == ("openai:gpt-6-luna", "openai:gpt-6.1-sol")
     assert parse_route("ollama:qwen3:8b") == ("ollama:qwen3:8b", "ollama:qwen3:8b")
     assert slug("ollama:qwen3:8b>openai:gpt-6.1-sol") == "ollama_qwen3_8b__openai_gpt-6.1-sol"
+
+
+def _qa_project():
+    from elicitsense.index import Index, build_docs
+    from elicitsense.qa import Project
+
+    seg = lambda i, line, text: {"id": i, "source_line": line, "speaker": "OWNER", "start": 1.0, "end": 2.0,
+                                 "text": text, "words": []}
+    transcripts = [{"meeting": {"id": "m1", "date": "2026-03-02"},
+                    "segments": [seg("S001", "L001", "We want an SMS reminder the day before."),
+                                 seg("S002", "L002", "Patient data has to stay in Australia.")]}]
+    register = {"requirements": [{"id": "REQ-m1-001", "meeting": "m1", "type": "functional", "status": "confirmed",
+                                  "stakeholder": "OWNER", "statement": "Patients get an SMS reminder.",
+                                  "evidence": [{"meeting": "m1", "segment_id": "S001", "speaker": "OWNER",
+                                                "quote": "an SMS reminder the day before"}], "history": []}],
+                "relations": [], "open_conflicts": []}
+    return Project(register, transcripts, Index(build_docs(register, transcripts), "bm25"))
+
+
+def test_qa_tools_track_seen_segments_and_check_citations():
+    project = _qa_project()
+    seen = set()
+    hits = project.run_tool("search", {"query": "where is data stored Australia", "scope": "transcript", "k": 1}, seen)
+    assert hits["results"][0]["segment"] == "m1:S002" and seen == {"m1:S002"}
+    project.run_tool("get_requirement", {"id": "REQ-m1-001"}, seen)
+    assert seen == {"m1:S001", "m1:S002"}
+    checked = project.check({"answer": "In Australia.", "answerable": True, "requirement_ids": ["REQ-m1-001", "REQ-x"],
+                             "citations": [{"segment": "m1:S002", "quote": "has to stay in Australia"},
+                                           {"segment": "m1:S001", "quote": "data stays in Europe"}]})
+    assert [c["verified"] for c in checked["citations"]] == [True, False]
+    assert checked["supported"] and checked["unknown_requirement_ids"] == ["REQ-x"]
+
+
+def test_score_answer_facts_abstention_and_evidence():
+    from elicitsense.evaluate import score_answer, summarise_answers
+
+    q = {"id": "q1", "answerable": True, "facts": [["$20", "twenty dollar"], ["24 hours", "twenty four hours"]],
+         "evidence": ["m2:L007", "m2:L009"]}
+    rec = {"answer": "New patients pay a twenty-dollar deposit, refunded if they cancel 24 hours ahead.",
+           "answerable": True, "supported": True, "seen_lines": ["m2:L007", "m2:L009"],
+           "citations": [{"verified": True, "line": "m2:L007"}, {"verified": False, "line": "m2:L009"}]}
+    row = score_answer(rec, q)
+    assert row["correct"] and row["evidence_recall"] == 0.5 and row["retrieval_recall"] == 1.0
+    no = score_answer({"answer": "Not discussed.", "answerable": False, "citations": [], "seen_lines": []},
+                      {"id": "q2", "answerable": False, "facts": [], "evidence": []})
+    assert no["correct"]
+    s = summarise_answers([row, no])
+    assert s["correct"] == 1.0 and s["citations_verified"] == 0.5 and s["false_abstentions"] == 0
+
+
+def test_recover_submit_written_as_text():
+    from elicitsense.qa import finish, recover_submit
+
+    text = 'submit_answer {"answer": "Not discussed.", "answerable": false, "citations": [], "requirement_ids": []} </tool_call>'
+    assert recover_submit(text)["answerable"] is False
+    assert recover_submit("The deposit is $20.") is None
+    rec = finish(_qa_project(), {"submitted": None, "final_text": text})
+    assert rec["recovered_from_text"] and not rec["answerable"] and not rec["no_submit"]

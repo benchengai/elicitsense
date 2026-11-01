@@ -12,8 +12,8 @@ See [docs/SPEC.md](docs/SPEC.md) for the product and technical spec and
 
 ## Status
 
-Milestones M1 (pipeline CLI), M2 (cross-meeting register) and M3 (evaluation
-and model comparison) are done. Works today:
+Milestones M1 (pipeline CLI), M2 (cross-meeting register), M3 (evaluation and
+model comparison) and M4 (Q&A agent) are done. Works today:
 
 - scripted demo meetings rendered to audio with macOS `say` (`data/projects/`)
 - local transcription with word timestamps (faster-whisper, nothing uploaded)
@@ -28,9 +28,12 @@ and model comparison) are done. Works today:
   `fernhill_bakery` (held out), with scorers for cues, extraction and the register
 - `bench`: runs several models several times on the same transcripts and
   reports quality, cost, latency and failures ([docs/eval](docs/eval/README.md))
+- `ask`: a tool-using agent answers questions about the project from the
+  register and transcripts (hybrid BM25 and embedding search); every quote it
+  cites is checked against the transcript, and it says so when the meetings
+  do not cover the question. `bench-qa` scores it on gold questions.
 
-Next: Q&A agent over the register with cited answers (M4), then a minimal web
-UI (M5).
+Next: a minimal web UI with the register, a synced player and Q&A (M5).
 
 ## Quick start
 
@@ -53,6 +56,7 @@ uv run elicitsense eval-extract runs/harbour_physio data/projects/harbour_physio
 uv run elicitsense merge runs/harbour_physio -o runs/harbour_physio/register.json
 uv run elicitsense eval-merge runs/harbour_physio/register.json data/projects/harbour_physio/gold.json
 uv run elicitsense bench data/projects/harbour_physio -m openai:gpt-6.1-sol ollama:qwen3:8b --runs 3
+uv run elicitsense ask runs/harbour_physio "How did the reminder requirement change?" --provider openai --llm gpt-6-luna
 ```
 
 `run` writes `runs/<project>/<meeting>/segments.json`, `cues.json` and
@@ -103,6 +107,13 @@ Follow-up experiment, same extraction outputs, merge step re-run:
   held-out runs, and found about one relation fewer per project.
 - With the merge model fixed, who extracted still moved relation recall by up
   to 0.34, which requirement recall did not show.
+
+Q&A agent, 15 development and 17 held-out questions (3 runs): `gpt-6.1-sol`
+answers 1.00 and 0.96 correctly, `gpt-6-luna` 0.98 and 0.94 at a tenth of the
+cost per question ($0.0008). Every answer either model marked answerable had a
+verified citation, and both declined the never-discussed questions in every
+run. The local `qwen3:8b` mostly wrote its final tool call as text instead of
+making it (0.53 and 0.76 correct, scored strictly).
 
 What this shows: extracting grounded requirements is within reach of every
 model tested, including an 8B model on a laptop; linking them across meetings

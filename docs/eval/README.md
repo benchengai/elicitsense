@@ -202,6 +202,89 @@ use restricted ids. Full tables:
     recall sees neither effect because it only checks which lines are cited.
     Scoring extraction properly needs a gold status for each requirement.
 
+## Q&A agent (M4)
+
+The agent answers questions from the register and the transcripts through
+tools (`search`, `get_requirement`, `list_requirements`, `open_conflicts`)
+and ends with `submit_answer`: an answer, an answerable flag, and cited
+segments with verbatim quotes. Quotes are checked against the transcript.
+
+Gold questions: 15 for the development set (13 answerable, 2 about things
+never discussed) and 17 for the held-out set (15 and 2), in each project's
+`questions.json`. Four per project are harder by design: a list of changes,
+a disagreement between stakeholders, points the client left open, and a
+question with a false premise ("Why did the bakery decide to block
+orders...?" when nothing was decided). The agent prompt and tools were frozen
+after one check run on the development set and before any held-out answer
+was read.
+
+An answer is correct when it states every gold fact (each fact has a few
+accepted phrasings, matched after removing punctuation) or, for a question
+the meetings do not cover, when it declines. The register is the
+`gpt-6.1-sol` register from run 1 of the merge experiment; retrieval is
+hybrid.
+
+```bash
+uv run elicitsense bench-qa data/projects/<project> --runs 3 \
+  --register runs/bench/<project>/constrained-ids/openai_gpt-6.1-sol/run1/register.json \
+  -m openai:gpt-6.1-sol openai:gpt-6.1-terra openai:gpt-6-luna --report docs/eval/<project>-qa.md
+```
+
+Development set / held-out set, mean over three runs (`qwen3:8b`: one run).
+Full tables: [development](harbour_physio-qa.md), [held out](fernhill_bakery-qa.md),
+local model [strict](harbour_physio-qa-local-strict.md) and
+[with text recovery](harbour_physio-qa-local-lenient.md) (and the held-out
+[strict](fernhill_bakery-qa-local-strict.md) and
+[recovery](fernhill_bakery-qa-local-lenient.md) tables).
+
+| Model | Correct | Declined both unanswerable | Answers with a verified citation | Quotes verified | Gold lines cited | Tool calls per question | Cost per question (USD) | Time per question (s) |
+|---|---|---|---|---|---|---|---|---|
+| `gpt-6.1-sol` | 1.00 / 0.96 | 3 of 3 / 3 of 3 | 1.00 / 1.00 | 1.00 / 1.00 | 0.96 / 0.98 | 4.4 / 4.2 | 0.0088 / 0.0082 | 8 / 8 |
+| `gpt-6.1-terra` | 0.98 / 0.94 | 3 of 3 / 3 of 3 | 1.00 / 1.00 | 1.00 / 1.00 | 0.96 / 0.99 | 7.4 / 7.2 | 0.0068 / 0.0066 | 11 / 10 |
+| `gpt-6-luna` | 0.98 / 0.94 | 3 of 3 / 3 of 3 | 1.00 / 1.00 | 1.00 / 1.00 | 0.97 / 0.97 | 5.8 / 5.5 | 0.0008 / 0.0007 | 13 / 12 |
+| `qwen3:8b`, strict | 0.53 / 0.76 | 0 of 1 / 0 of 1 | 0.15 / 0.20 | 1.00 / 1.00 | 0.13 / 0.17 | 1.9 / 2.1 | local | 22 / 21 |
+| `qwen3:8b`, text recovery | 0.60 / 0.82 | 1 of 1 / 1 of 1 | 0.77 / 0.73 | 0.70 / 0.87 | 0.56 / 0.61 | 1.9 / 2.1 | local | 22 / 21 |
+
+Retrieval alone, gold evidence lines in the top 5 hits for the raw question
+text: BM25 0.63 / 0.76, dense 0.81 / 0.87, hybrid 0.86 / 0.87. The agent's
+own searches reached 0.99 to 1.00 of the gold lines with the API models.
+
+11. **The API models answer almost everything, always with checked
+    citations.** Every answer they marked answerable had at least one verified
+    citation, every quote they cited matched its segment, and they declined
+    both never-discussed questions in every run.
+12. **The cheapest model is good enough for Q&A.** `gpt-6-luna` scores within
+    one question of `gpt-6.1-sol` (0.98 and 0.94 against 1.00 and 0.96) at
+    about a tenth of the cost per question, using more tool calls and 4 to 5
+    more seconds per question. Unlike merge (findings 2 and 3), answering questions over a
+    finished register does not need the strongest model on this data.
+13. **A false premise exposes a gap in the answer contract.** On the held-out
+    question that assumes a decision nobody made, all nine API answers said
+    in the text that nothing had been decided, but six of them set
+    answerable to false, which the scorer counts as wrong (the gold says the
+    question is answerable by correcting it). A false premise is neither
+    "answered" nor "not in the meetings", so the answer schema needs a third
+    outcome for "the question's premise is wrong". The gold was not changed.
+14. **Keyword facts undercount paraphrases.** One `gpt-6-luna` answer said a
+    café "may be lost" where the fact expects "lose", and was scored wrong.
+    The other API misses are real omissions: the account holders' history
+    (once), the packing-list delivery notes (once), and one development-set
+    run that ended without submitting an answer.
+15. **Hybrid retrieval helps single-shot search, less so an agent.** For the
+    raw question, fusing BM25 with embeddings finds 0.86 and 0.87 of the gold
+    lines in the top 5, against 0.63 and 0.76 for BM25 alone. The agent
+    reformulates and searches several times, so its tools showed it nearly
+    all gold lines either way.
+16. **The local 8B model is not usable as the agent as it stands.** It ended
+    13 of 15 and 14 of 17 questions without making the `submit_answer` call;
+    in 12 of each it had written the call as plain text instead. Scored
+    strictly, those are unsubmitted answers without citations: 0.53 and 0.76
+    correct, and the unanswerable questions count as answered. Parsing the call out of the text
+    (`--strict` turns this off) lifts it to 0.60 and 0.82 and it then
+    declines the unanswerable questions, but only 0.70 and 0.87 of its quotes
+    verify, it cites 0.56 and 0.61 of the gold lines, and it makes about two
+    tool calls per question where the API models make four to seven.
+
 ## Not covered yet
 
 - Gold statuses per requirement, so extraction is scored on status as well as
@@ -212,6 +295,11 @@ use restricted ids. Full tables:
   machine slept on low battery.
 - Claude models: no Anthropic key was configured for this round. The bench
   supports them (`anthropic:claude-opus-5-5`).
+- Q&A judged by an LLM or a person instead of keyword facts, which would
+  credit paraphrases (finding 14).
+- A "premise corrected" outcome in the answer schema (finding 13).
+- The Q&A agent with Claude: the Anthropic tool loop is written to the SDK's
+  documented manual-loop pattern but has not been run without a key.
 
 ## Limitations
 

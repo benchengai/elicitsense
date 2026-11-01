@@ -13,6 +13,8 @@ statements are printed for spot-checking.
 
 from __future__ import annotations
 
+import re
+
 
 def _pairs(preds: dict[str, set[str]], golds: dict[str, set[str]]) -> list[tuple[str, str]]:
     candidates = []
@@ -156,4 +158,58 @@ def score_register(register: dict, reports: list[dict], gold: dict) -> dict:
         "open_conflicts_expected": len(expected_open),
         "open_conflicts_found": open_found,
         "open_conflicts_unexpected": len(register["open_conflicts"]) - open_found,
+    }
+
+
+def _norm_answer(text: str) -> str:
+    text = text.lower().replace("’", "").replace("'", "")
+    return " ".join(re.sub(r"[^a-z0-9$%.]+", " ", text).split())
+
+
+def score_answer(record: dict, question: dict) -> dict:
+    """Score one Q&A answer against a gold question: facts stated, abstention, and whether
+    the verified citations cover the gold evidence lines."""
+    citations = record["citations"]
+    row = {
+        "id": question["id"],
+        "gold_answerable": question["answerable"],
+        "said_answerable": record["answerable"],
+        "citations": len(citations),
+        "citations_verified": sum(c["verified"] for c in citations),
+        "no_submit": record.get("no_submit", False),
+    }
+    if not question["answerable"]:
+        row["correct"] = not record["answerable"]
+        return row
+    text = _norm_answer(record["answer"])
+    found = [any(_norm_answer(alt) in text for alt in fact) for fact in question["facts"]]
+    gold_lines = set(question["evidence"])
+    verified_lines = {c["line"] for c in citations if c["verified"]}
+    row.update({
+        "correct": record["answerable"] and all(found),
+        "facts_found": sum(found) / len(found) if found else 1.0,
+        "supported": record["supported"],
+        "evidence_recall": len(verified_lines & gold_lines) / len(gold_lines),
+        "retrieval_recall": len(set(record["seen_lines"]) & gold_lines) / len(gold_lines),
+        "missing_facts": [fact[0] for fact, ok in zip(question["facts"], found) if not ok],
+    })
+    return row
+
+
+def summarise_answers(rows: list[dict]) -> dict:
+    answerable = [r for r in rows if r["gold_answerable"]]
+    unanswerable = [r for r in rows if not r["gold_answerable"]]
+    claimed = [r for r in answerable if r["said_answerable"]]
+    mean = lambda xs: sum(xs) / len(xs) if xs else None
+    cited = sum(r["citations"] for r in rows)
+    return {
+        "correct": mean([r["correct"] for r in rows]),
+        "answerable_correct": mean([r["correct"] for r in answerable]),
+        "abstained_correctly": mean([r["correct"] for r in unanswerable]),
+        "false_abstentions": sum(not r["said_answerable"] for r in answerable),
+        "facts_found": mean([r["facts_found"] for r in answerable]),
+        "supported": mean([r["supported"] for r in claimed]),
+        "citations_verified": sum(r["citations_verified"] for r in rows) / cited if cited else None,
+        "evidence_recall": mean([r["evidence_recall"] for r in answerable]),
+        "retrieval_recall": mean([r["retrieval_recall"] for r in answerable]),
     }

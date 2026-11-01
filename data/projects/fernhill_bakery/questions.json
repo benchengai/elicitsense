@@ -1,0 +1,22 @@
+{
+  "notes": "Held-out gold questions for the Q&A agent, written before the agent was run on this project. The agent prompt is not changed after seeing results on them. Same format as the development set: each fact is a list of acceptable phrasings; evidence lists the transcript lines a complete answer would cite.",
+  "questions": [
+    {"id": "q01", "question": "What is the order cutoff for next-morning delivery, and has it changed?", "answerable": true, "facts": [["noon", "12 pm", "midday", "12pm", "12 00"], ["2 pm", "2pm", "two pm", "2 in the afternoon", "two in the afternoon", "2 p.m", "2 00"]], "evidence": ["f1:L004", "f2:L002"]},
+    {"id": "q02", "question": "What happens if a café orders after the cutoff?", "answerable": true, "facts": [["next delivery day", "following delivery day", "day after", "next available", "later delivery day"]], "evidence": ["f1:L006"]},
+    {"id": "q03", "question": "Can cafés pay by card, and what does it cost them?", "answerable": true, "facts": [["card"], ["1.5", "one point five"], ["surcharge"]], "evidence": ["f1:L011", "f2:L005", "f2:L006"]},
+    {"id": "q04", "question": "Has the credit limit been decided?", "answerable": true, "facts": [["not decided", "undecided", "not been decided", "hasn't decided", "has not decided", "haven't decided", "not yet decided", "still open", "remains open", "is open", "unresolved", "no decision", "not settled"]], "evidence": ["f2:L009", "f2:L010", "f2:L011", "f3:L008"]},
+    {"id": "q05", "question": "Why does dispatch object to blocking orders from cafés over their credit limit?", "answerable": true, "facts": [["lose"], ["bread", "deliver"]], "evidence": ["f2:L010"]},
+    {"id": "q06", "question": "What happened to the idea of product ratings?", "answerable": true, "facts": [["drop", "removed", "not needed", "don't need", "do not need", "rejected", "abandoned", "scrapped"]], "evidence": ["f1:L016", "f2:L008"]},
+    {"id": "q07", "question": "How will invoices get into Xero?", "answerable": true, "facts": [["api"], ["direct", "automatic"]], "evidence": ["f1:L009", "f3:L002", "f3:L003"]},
+    {"id": "q08", "question": "What should the packing list contain?", "answerable": true, "facts": [["route"], ["delivery note", "notes"]], "evidence": ["f1:L013", "f2:L003"]},
+    {"id": "q09", "question": "How often are invoices sent, and when?", "answerable": true, "facts": [["week", "weekly"], ["monday"]], "evidence": ["f1:L008"]},
+    {"id": "q10", "question": "What page load time was agreed for the order page?", "answerable": true, "facts": [["three seconds", "3 seconds", "3 second", "three second"]], "evidence": ["f3:L005", "f3:L006"]},
+    {"id": "q11", "question": "From what time each day must the site be available?", "answerable": true, "facts": [["4 am", "4am", "four in the morning", "4 in the morning", "4 00", "4 a.m", "four am"]], "evidence": ["f2:L012"]},
+    {"id": "q12", "question": "Which delivery company will the bakery use?", "answerable": false, "facts": [], "evidence": []},
+    {"id": "q13", "question": "What is the budget for the ordering site?", "answerable": false, "facts": [], "evidence": []},
+    {"id": "q14", "question": "Which requirements changed in the second meeting?", "answerable": true, "facts": [["noon", "12 pm", "midday", "12pm"], ["surcharge", "1.5"], ["rating"], ["delivery note", "notes"]], "evidence": ["f2:L002", "f2:L003", "f2:L005", "f2:L008"]},
+    {"id": "q15", "question": "Who disagreed about the credit limit, and what did each side want?", "answerable": true, "facts": [["accounts"], ["dispatch"], ["block"], ["deliver"]], "evidence": ["f2:L009", "f2:L010"]},
+    {"id": "q16", "question": "Which points in the first meeting did the client leave open, saying they were not sure?", "answerable": true, "facts": [["card"], ["rating", "rate"]], "evidence": ["f1:L011", "f1:L016", "f2:L006"]},
+    {"id": "q17", "question": "Why did the bakery decide to block orders from cafés that owe more than two thousand dollars?", "answerable": true, "facts": [["not decided", "undecided", "not been decided", "hasnt decided", "has not decided", "havent decided", "not yet decided", "still open", "remains open", "is open", "unresolved", "no decision", "not settled", "did not decide", "didnt decide", "has not been made", "hasnt been made"]], "evidence": ["f2:L009", "f2:L010", "f2:L011", "f3:L008"]}
+  ]
+}

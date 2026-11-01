@@ -1,0 +1,20 @@
+{
+  "notes": "Gold questions for the Q&A agent. 'facts' lists what a correct answer must state; each fact is a list of acceptable phrasings, matched case-insensitively after removing punctuation. 'evidence' lists the transcript lines a complete answer would cite. Unanswerable questions are about things the meetings never discussed; the correct behaviour is to say so. Development set: the agent prompt was written against these questions.",
+  "questions": [
+    {"id": "q01", "question": "Can patients book without creating an account?", "answerable": true, "facts": [["guest", "without an account", "without creating an account", "without logging in"], ["past appointments", "appointment history", "their history"]], "evidence": ["m1:L005", "m2:L004", "m2:L005"]},
+    {"id": "q02", "question": "What deposit do new patients pay, and when is it refunded?", "answerable": true, "facts": [["$20", "20 dollar", "twenty dollar", "20 deposit"], ["24 hours", "twenty four hours", "24 hour"]], "evidence": ["m2:L007", "m2:L009"]},
+    {"id": "q03", "question": "How did the appointment reminder requirement change across meetings?", "answerable": true, "facts": [["sms", "text message"], ["email"], ["two days", "2 days"]], "evidence": ["m1:L010", "m2:L010", "m2:L011"]},
+    {"id": "q04", "question": "How will new bookings get into ClinicDesk, and why not through its API?", "answerable": true, "facts": [["csv"], ["night", "daily"], ["read only"]], "evidence": ["m2:L012", "m3:L002", "m3:L003"]},
+    {"id": "q05", "question": "Is the waitlist part of the first release?", "answerable": true, "facts": [["later release", "later version", "for later", "deferred", "left out", "not part of the first release", "not in the first release", "out of the first release", "excluded"]], "evidence": ["m2:L015", "m2:L016", "m3:L005", "m3:L006"]},
+    {"id": "q06", "question": "What performance target was agreed for showing available times?", "answerable": true, "facts": [["two seconds", "2 seconds", "2 second", "two second"], ["phone", "mobile"]], "evidence": ["m3:L008", "m3:L009"]},
+    {"id": "q07", "question": "Which accessibility standard should the app meet?", "answerable": true, "facts": [["wcag"], ["2.2", "2 .2"], ["aa"]], "evidence": ["m3:L011", "m3:L012", "m3:L013"]},
+    {"id": "q08", "question": "Where must patient data be stored?", "answerable": true, "facts": [["australia"]], "evidence": ["m1:L023"]},
+    {"id": "q09", "question": "Who asked for staff to be able to block out time slots, and what for?", "answerable": true, "facts": [["front desk", "frontdesk"], ["staff meeting", "leave"]], "evidence": ["m1:L008"]},
+    {"id": "q10", "question": "Which payment provider will process the deposits?", "answerable": false, "facts": [], "evidence": []},
+    {"id": "q11", "question": "What is the launch date for the booking app?", "answerable": false, "facts": [], "evidence": []},
+    {"id": "q12", "question": "Which requirements changed between the first and second meeting?", "answerable": true, "facts": [["account", "log in", "login"], ["deposit"], ["email"], ["clinicdesk", "clinic desk"]], "evidence": ["m2:L002", "m2:L005", "m2:L007", "m2:L011", "m2:L012"]},
+    {"id": "q13", "question": "Who was unsure about requiring patients to log in, and why?", "answerable": true, "facts": [["front desk", "frontdesk"], ["password"]], "evidence": ["m2:L003"]},
+    {"id": "q14", "question": "Which points in the first meeting did the client leave open, saying they were not sure or would have to check?", "answerable": true, "facts": [["deposit"], ["api"]], "evidence": ["m1:L012", "m1:L019"]},
+    {"id": "q15", "question": "Why did the clinic decide to require every patient to log in?", "answerable": true, "facts": [["guest", "without an account", "without logging in", "optional", "not required", "did not decide", "didnt decide"]], "evidence": ["m2:L002", "m2:L004", "m2:L005"]}
+  ]
+}

@@ -254,6 +254,38 @@ def cmd_eval_merge(args) -> None:
           f"{s['open_conflicts_unexpected']} unexpected")
 
 
+def _spec(provider: str, model: str | None) -> str:
+    from .llm import DEFAULT_MODELS, resolve_provider
+
+    provider = resolve_provider(provider)
+    return f"{provider}:{model or DEFAULT_MODELS[provider]}"
+
+
+def cmd_ask(args) -> None:
+    from .qa import ask, load
+
+    runs = Path(args.project_runs)
+    project = load(runs, Path(args.register) if args.register else runs / "register.json", args.retrieval)
+    try:
+        r = ask(project, args.question, _spec(args.provider, args.llm))
+    except Exception as e:
+        if (message := _api_error_message(e)) is None:
+            raise
+        sys.exit(f"ask failed: {message}")
+    label = "answer" if r["supported"] else ("not in the meetings" if not r["answerable"] else "UNSUPPORTED")
+    print(f"\n[{label}] {r['answer']}\n")
+    for c in r["citations"]:
+        mark = "ok " if c["verified"] else "BAD"
+        seg = project.segments.get(c["segment"])
+        when = f"{seg['speaker']} {seg['start']:.0f}s" if seg else "?"
+        print(f"  {mark} {c['segment']} ({when}): \"{c['quote']}\"")
+    if r["requirement_ids"]:
+        print(f"  requirements: {', '.join(r['requirement_ids'])}")
+    u = r["usage"]
+    cost = f"${u['cost_usd']:.4f}" if u["cost_usd"] is not None else "cost unknown"
+    print(f"\n{r['model']}: {len(r['trace'])} tool calls, {u['calls']} model turns, {u['latency_s']:.0f}s, {cost}")
+
+
 def cmd_bench(args) -> None:
     from .bench import bench, render_markdown
 
@@ -271,6 +303,28 @@ def cmd_bench(args) -> None:
     table = render_markdown(results)
     print("\n" + table)
     _write(out / "results.json", results)
+    if args.report:
+        Path(args.report).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.report).write_text(table, encoding="utf-8")
+        print(f"wrote {args.report}")
+
+
+def cmd_bench_qa(args) -> None:
+    from .qa_bench import bench_qa, render_qa_markdown
+
+    project = Path(args.project)
+    runs = RUNS_DIR / project.name
+    out = Path(args.out) if args.out else RUNS_DIR / "bench-qa" / project.name
+    print(f"bench-qa {project.name}: {len(args.models)} models x {args.runs} runs -> {out}")
+    try:
+        results = bench_qa(project, runs, Path(args.register), args.models, args.runs, out,
+                           args.retrieval, args.workers, strict=args.strict)
+    except Exception as e:
+        if (message := _api_error_message(e)) is None:
+            raise
+        sys.exit(f"bench-qa stopped: {message} (finished answers are kept; rerun to resume)")
+    table = render_qa_markdown(results)
+    print("\n" + table)
     if args.report:
         Path(args.report).parent.mkdir(parents=True, exist_ok=True)
         Path(args.report).write_text(table, encoding="utf-8")
@@ -341,6 +395,13 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("gold")
     s.set_defaults(func=cmd_eval_merge)
 
+    s = sub.add_parser("ask", parents=[llm_flags], help="ask a question about a project's requirements")
+    s.add_argument("project_runs", help="runs folder of one project, e.g. runs/harbour_physio")
+    s.add_argument("question")
+    s.add_argument("--register", help="register JSON (default <project_runs>/register.json)")
+    s.add_argument("--retrieval", choices=["bm25", "dense", "hybrid"], default="hybrid")
+    s.set_defaults(func=cmd_ask)
+
     s = sub.add_parser("bench", help="compare models on extraction and merge for one project")
     s.add_argument("project", help="project folder, e.g. data/projects/harbour_physio")
     s.add_argument("-m", "--models", nargs="+", required=True,
@@ -355,6 +416,19 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--reuse-extraction", metavar="BENCH_DIR",
                    help="reuse run k's extraction outputs from an earlier bench folder; only merge is called")
     s.set_defaults(func=cmd_bench)
+
+    s = sub.add_parser("bench-qa", help="score the Q&A agent on a project's gold questions")
+    s.add_argument("project", help="project folder with questions.json, e.g. data/projects/harbour_physio")
+    s.add_argument("--register", required=True, help="register JSON the agent answers from")
+    s.add_argument("-m", "--models", nargs="+", required=True, help="provider:model specs")
+    s.add_argument("--runs", type=int, default=3)
+    s.add_argument("--retrieval", choices=["bm25", "dense", "hybrid"], default="hybrid")
+    s.add_argument("--workers", type=int, default=3)
+    s.add_argument("-o", "--out", help="output folder (default runs/bench-qa/<project>)")
+    s.add_argument("--report", help="also write the markdown results table to this file")
+    s.add_argument("--strict", action="store_true",
+                   help="do not parse final answers written as text instead of a submit_answer call")
+    s.set_defaults(func=cmd_bench_qa)
 
     args = p.parse_args(argv)
     args.func(args)

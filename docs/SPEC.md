@@ -128,6 +128,28 @@ Per segment, from transcript text and word timings:
 A requirement is flagged when any evidence segment has two or more cue kinds.
 The flag reads "needs confirmation", listing the cues.
 
+### Q&A agent
+
+The analyst asks questions in plain English ("How did the reminder
+requirement change?"). A tool-using agent answers from the register and the
+transcripts, never from memory:
+
+- Tools: `search` (requirements and transcript segments), `get_requirement`
+  (statement, status, evidence, relations, history, needs-confirmation flag),
+  `list_requirements`, `open_conflicts`, and `submit_answer`, which ends the
+  turn with an answer, an answerable flag, cited segments with verbatim
+  quotes, and requirement ids.
+- Retrieval: BM25 and dense embeddings (`text-embedding-3-small`, cached),
+  fused by reciprocal rank. A requirement hit also surfaces the segments its
+  evidence cites.
+- Checks, deterministic: every cited quote must match its segment; an answer
+  marked answerable with no verified citation is shown as unsupported;
+  unknown requirement ids are reported.
+- Abstention: if the meetings do not cover the question, the agent says so
+  instead of filling the gap.
+- The loop uses each provider's native function calling (OpenAI Responses,
+  Anthropic Messages, Ollama chat) with the same tools and prompt.
+
 ## 5. Evaluation
 
 Each project in `data/projects/` is a set of scripted meetings with gold
@@ -168,7 +190,7 @@ earlier extraction outputs, for comparisons that change the merge alone.
 | M1 ✓ | CLI: transcribe → cues → extract → verify | `requirements.json` for meeting 1 with verified evidence |
 | M2 ✓ | Cross-meeting merge and register | conflicts between meeting 1 and 2 detected |
 | M3 ✓ | Evaluation: model comparison (API and local open-weight), cost and latency, held-out project | report generated from bench runs on both projects ([docs/eval](eval/README.md)) |
-| M4 | Q&A agent over the register: retrieval and tool calls, every answer cites evidence | answer faithfulness scored against gold questions |
+| M4 ✓ | Q&A agent over the register: retrieval and tool calls, every answer cites evidence | answer faithfulness scored against gold questions ([docs/eval](eval/README.md#qa-agent-m4)) |
 | M5 | Minimal web UI: register, synced player, Q&A | demo runs locally |
 | M6 | Demo mode, export, deploy | static demo on Vercel, no API key needed; Jira CSV imports |
 | Later | LoRA fine-tune of a small open model on extraction, compared with API models; diarization adapter; role-played recordings; MCP server | |
