@@ -192,7 +192,7 @@ earlier extraction outputs, for comparisons that change the merge alone.
 | M3 ✓ | Evaluation: model comparison (API and local open-weight), cost and latency, held-out project | report generated from bench runs on both projects ([docs/eval](eval/README.md)) |
 | M4 ✓ | Q&A agent over the register: retrieval and tool calls, every answer cites evidence | answer faithfulness scored against gold questions ([docs/eval](eval/README.md#qa-agent-m4)) |
 | M5 ✓ | Minimal web UI: register, synced player, Q&A | demo runs locally (`web/`) |
-| M6 | Demo mode, export, deploy | static demo on Vercel, no API key needed; Jira CSV imports (demo mode and export done; not deployed yet) |
+| M6 ✓ | Demo mode, export, deploy | static demo, no API key needed, live at https://benchengai.github.io/demos/elicitsense/ (GitHub Pages); Markdown and Jira CSV export (the CSV has not been tried in a live Jira import) |
 | Later | LoRA fine-tune of a small open model on extraction, compared with API models; diarization adapter; role-played recordings; MCP server | |
 
 Demo mode serves outputs produced by real pipeline runs on the public demo

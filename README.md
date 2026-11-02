@@ -1,5 +1,7 @@
 # ElicitSense
 
+**Live demo:** [benchengai.github.io/demos/elicitsense](https://benchengai.github.io/demos/elicitsense/) (static, no API key; every output comes from a real pipeline run)
+
 Turn requirements-elicitation meeting recordings into a reviewable requirements
 register. Every requirement cites the exact words and timestamp it came from,
 and is flagged "needs confirmation" when the stakeholder hesitated while
@@ -19,8 +21,8 @@ See [docs/SPEC.md](docs/SPEC.md) for the product and technical spec and
 ## Status
 
 Milestones M1 (pipeline CLI), M2 (cross-meeting register), M3 (evaluation and
-model comparison), M4 (Q&A agent) and M5 (web UI) are done; M6 (demo mode and
-export) is done apart from the deploy. Works today:
+model comparison), M4 (Q&A agent) and M5 (web UI) are done; M6 (demo mode,
+export and deploy) are done. Works today:
 
 - scripted demo meetings rendered to audio with macOS `say` (`data/projects/`)
 - local transcription with word timestamps (faster-whisper, nothing uploaded)
@@ -46,7 +48,8 @@ export) is done apart from the deploy. Works today:
   search, Markdown and Jira CSV export, and the evaluation charts. It needs no
   API key; `elicitsense export-demo` writes its data from real runs.
 
-Next: deploy the demo (Vercel, root directory `web`), then role-played human
+The demo is live at https://benchengai.github.io/demos/elicitsense/ (GitHub Pages; see
+[web/README.md](web/README.md) for the sub-path build). Next: role-played human
 recordings and a diarization step for real meetings.
 
 ## Quick start
