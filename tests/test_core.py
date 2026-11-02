@@ -378,3 +378,13 @@ def test_recover_submit_written_as_text():
     assert recover_submit("The deposit is $20.") is None
     rec = finish(_qa_project(), {"submitted": None, "final_text": text})
     assert rec["recovered_from_text"] and not rec["answerable"] and not rec["no_submit"]
+
+
+def test_status_agreement_uses_coarse_statuses():
+    from elicitsense.evaluate import coarse_status, summarise
+
+    assert coarse_status("confirmed") == coarse_status("proposed") == "agreed"
+    pairs = [{"type_ok": True, "uncertainty_ok": True, "gold_status": "agreed", "status_ok": True},
+             {"type_ok": True, "uncertainty_ok": True, "gold_status": "superseded", "status_ok": False}]
+    s = summarise([{"matched": pairs, "splits": [], "missed": [], "extra": [], "kept": 2, "rejected": 0}])
+    assert s["status_agreement"] == 0.5 and s["special_status_recall"] == 0.0

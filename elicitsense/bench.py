@@ -141,6 +141,8 @@ def score_run(project: dict, run: dict, out: Path) -> dict:
         "evidence_verified": s["evidence_validity"],
         "type_agreement": s["type_agreement"],
         "uncertainty_agreement": s["uncertainty_agreement"],
+        "status_agreement": s.get("status_agreement"),
+        "special_status_recall": s.get("special_status_recall"),
         "rel_recall": r["recall"],
         "rel_recall_any": r["recall_any"],
         "rel_precision": r["precision"],
@@ -191,7 +193,7 @@ def bench(project_dir: Path, specs: list[str], runs: int, runs_root: Path, out_r
 
 
 METRICS = ("req_recall", "req_precision", "req_strict_precision", "evidence_verified", "type_agreement",
-           "uncertainty_agreement", "rel_recall", "rel_recall_any", "rel_precision", "status_ok",
+           "uncertainty_agreement", "status_agreement", "special_status_recall", "rel_recall", "rel_recall_any", "rel_precision", "status_ok",
            "open_conflicts_found", "open_conflicts_unexpected", "invalid_links", "cost_usd", "latency_s",
            "input_tokens", "output_tokens")
 

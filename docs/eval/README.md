@@ -202,6 +202,26 @@ use restricted ids. Full tables:
     recall sees neither effect because it only checks which lines are cited.
     Scoring extraction properly needs a gold status for each requirement.
 
+    *Follow-up, statuses added.* Each gold requirement now has a status at the
+    end of the meeting that raised it: agreed (confirmed or proposed), open
+    question, deferred, or superseded within the meeting. The labels were
+    added after these runs, so they are not blind on either set. Re-scoring
+    the M3 extraction outputs (no new model calls), share of matched items
+    with the right status / share right among the rare statuses:
+
+    | Extraction model | Development set | Held-out set |
+    |---|---|---|
+    | `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna` (each) | 1.00 / 1.00 | 0.90 / 0.50 |
+    | `qwen3:8b` | 0.93 / 0.56 (0.33 to 0.67) | 0.97 / 0.83 (0.75 to 1.00) |
+
+    On the development set the local model is the only one that gets rare
+    statuses wrong, including the reversed login proposal recorded as
+    confirmed, which is the failure described above. On the held-out set all
+    three API models recorded the two credit-limit requirements as deferred
+    where the gold says open question; the analyst's "let's leave the credit
+    limit open for now and come back to it" supports either reading, so that
+    0.50 says more about the label than about the models.
+
 ## Q&A agent (M4)
 
 The agent answers questions from the register and the transcripts through
@@ -287,8 +307,6 @@ own searches reached 0.99 to 1.00 of the gold lines with the API models.
 
 ## Not covered yet
 
-- Gold statuses per requirement, so extraction is scored on status as well as
-  coverage (finding 10).
 - A merge schema that also rules out linking a requirement to itself.
 - `qwen3:8b` with reasoning mode on. A single-meeting trial gave the same
   requirements in 1.5 times the time; the full bench was stopped when the

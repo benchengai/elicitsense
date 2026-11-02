@@ -32,6 +32,12 @@ def _pairs(preds: dict[str, set[str]], golds: dict[str, set[str]]) -> list[tuple
     return sorted(pairs)
 
 
+def coarse_status(status: str) -> str:
+    """Gold statuses separate what matters downstream: agreed (confirmed or proposed),
+    open_question, deferred, and superseded within the meeting."""
+    return "agreed" if status in ("confirmed", "proposed") else status
+
+
 def score_meeting(result: dict, segments: list[dict], gold: dict) -> dict:
     meeting = result["meeting"]["id"]
     seg_line = {s["id"]: f"{meeting}:{s['source_line']}" for s in segments}
@@ -48,6 +54,8 @@ def score_meeting(result: dict, segments: list[dict], gold: dict) -> dict:
         "gold_statement": golds[gid]["statement"],
         "type_ok": preds[pid]["type"] == golds[gid]["type"],
         "uncertainty_ok": preds[pid]["uncertainty"]["flag"] == golds[gid]["uncertain"],
+        "gold_status": golds[gid].get("status"),
+        "status_ok": coarse_status(preds[pid]["status"]) == golds[gid]["status"] if "status" in golds[gid] else None,
     } for gid, pid in pairs]
     matched_g = {m["gold"] for m in matched}
     matched_p = {m["pred"] for m in matched}
@@ -99,6 +107,19 @@ def summarise(reports: list[dict]) -> dict:
         "evidence_validity": kept / (kept + rejected) if kept + rejected else 0.0,
         "type_agreement": sum(m["type_ok"] for m in pairs) / len(pairs) if pairs else 0.0,
         "uncertainty_agreement": sum(m["uncertainty_ok"] for m in pairs) / len(pairs) if pairs else 0.0,
+        **_status_scores(pairs),
+    }
+
+
+def _status_scores(pairs: list[dict]) -> dict:
+    labelled = [m for m in pairs if m.get("status_ok") is not None]
+    special = [m for m in labelled if m["gold_status"] != "agreed"]
+    if not labelled:
+        return {}
+    return {
+        "status_agreement": sum(m["status_ok"] for m in labelled) / len(labelled),
+        # The rare statuses are the ones the merge step depends on.
+        "special_status_recall": sum(m["status_ok"] for m in special) / len(special) if special else None,
     }
 
 
