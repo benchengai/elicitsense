@@ -331,6 +331,22 @@ def cmd_bench_qa(args) -> None:
         print(f"wrote {args.report}")
 
 
+def cmd_export_demo(args) -> None:
+    from .demo import export_eval, export_project
+
+    out = Path(args.out)
+    projects = []
+    for project in args.projects:
+        p = Path(project)
+        register = RUNS_DIR / "bench" / p.name / "constrained-ids" / "openai_gpt-6.1-sol" / "run1" / "register.json"
+        meta = export_project(p, RUNS_DIR, AUDIO_DIR, register, RUNS_DIR / "bench-qa" / p.name / "api",
+                              args.qa_model, out / p.name)
+        projects.append(meta)
+        print(f"exported {p.name}: {meta['counts']}")
+    export_eval(RUNS_DIR, [Path(p).name for p in args.projects], out)
+    _write(out / "projects.json", projects)
+
+
 def main(argv: list[str] | None = None) -> None:
     load_dotenv(Path(".env"))
     load_dotenv(PROJECT_ROOT / ".env")
@@ -429,6 +445,12 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--strict", action="store_true",
                    help="do not parse final answers written as text instead of a submit_answer call")
     s.set_defaults(func=cmd_bench_qa)
+
+    s = sub.add_parser("export-demo", help="export real run outputs and audio for the static web demo")
+    s.add_argument("projects", nargs="+", help="project folders, e.g. data/projects/harbour_physio")
+    s.add_argument("--qa-model", default="openai:gpt-6.1-sol", help="whose recorded Q&A answers to show")
+    s.add_argument("-o", "--out", default="web/public/demo")
+    s.set_defaults(func=cmd_export_demo)
 
     args = p.parse_args(argv)
     args.func(args)

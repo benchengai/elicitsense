@@ -1,0 +1,68 @@
+[
+  {
+    "id": "harbour_physio",
+    "title": "Harbour Physio online booking",
+    "heldout": false,
+    "meetings": [
+      {
+        "id": "m1",
+        "title": "Kickoff: Harbour Physio online booking",
+        "date": "2026-03-02",
+        "duration": 105.0
+      },
+      {
+        "id": "m2",
+        "title": "Follow-up: accounts, payments, reminders",
+        "date": "2026-03-09",
+        "duration": 84.2
+      },
+      {
+        "id": "m3",
+        "title": "Review: open items",
+        "date": "2026-03-16",
+        "duration": 52.2
+      }
+    ],
+    "register_source": "runs/bench/harbour_physio/constrained-ids/openai_gpt-6.1-sol/run1/register.json",
+    "exported": "2026-11-02",
+    "counts": {
+      "requirements": 31,
+      "active": 25,
+      "relations": 17,
+      "open_conflicts": 0
+    }
+  },
+  {
+    "id": "fernhill_bakery",
+    "title": "Fernhill Bakery wholesale ordering",
+    "heldout": true,
+    "meetings": [
+      {
+        "id": "f1",
+        "title": "Kickoff: Fernhill Bakery wholesale ordering",
+        "date": "2026-04-06",
+        "duration": 91.0
+      },
+      {
+        "id": "f2",
+        "title": "Follow-up: cutoff, payments, credit",
+        "date": "2026-04-13",
+        "duration": 72.2
+      },
+      {
+        "id": "f3",
+        "title": "Review: first release",
+        "date": "2026-04-20",
+        "duration": 43.4
+      }
+    ],
+    "register_source": "runs/bench/fernhill_bakery/constrained-ids/openai_gpt-6.1-sol/run1/register.json",
+    "exported": "2026-11-02",
+    "counts": {
+      "requirements": 29,
+      "active": 24,
+      "relations": 15,
+      "open_conflicts": 1
+    }
+  }
+]

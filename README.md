@@ -13,7 +13,8 @@ See [docs/SPEC.md](docs/SPEC.md) for the product and technical spec and
 ## Status
 
 Milestones M1 (pipeline CLI), M2 (cross-meeting register), M3 (evaluation and
-model comparison) and M4 (Q&A agent) are done. Works today:
+model comparison), M4 (Q&A agent) and M5 (web UI) are done; M6 (demo mode and
+export) is done apart from the deploy. Works today:
 
 - scripted demo meetings rendered to audio with macOS `say` (`data/projects/`)
 - local transcription with word timestamps (faster-whisper, nothing uploaded)
@@ -33,7 +34,14 @@ model comparison) and M4 (Q&A agent) are done. Works today:
   cites is checked against the transcript, and it says so when the meetings
   do not cover the question. `bench-qa` scores it on gold questions.
 
-Next: a minimal web UI with the register, a synced player and Q&A (M5).
+- a static web demo (`web/`, Next.js): the register with review actions,
+  evidence that plays the exact moment of the recording, a synced transcript,
+  changes by meeting, recorded Q&A answers with checked citations, offline
+  search, Markdown and Jira CSV export, and the evaluation charts. It needs no
+  API key; `elicitsense export-demo` writes its data from real runs.
+
+Next: deploy the demo (Vercel, root directory `web`), then role-played human
+recordings and a diarization step for real meetings.
 
 ## Quick start
 

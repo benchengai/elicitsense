@@ -7,3 +7,4 @@ __pycache__/
 data/audio/
 runs/
 .DS_Store
+web/.claude/
