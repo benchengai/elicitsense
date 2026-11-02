@@ -5,6 +5,12 @@ register. Every requirement cites the exact words and timestamp it came from,
 and is flagged "needs confirmation" when the stakeholder hesitated while
 stating it.
 
+![ElicitSense register: a requirement flagged as needing confirmation, with its hesitation cues, its quote, and the synced transcript](docs/img/register.png)
+
+Live demo (no API key, synthetic meetings): `web/` builds a static site; a
+hosted copy lives at `/demos/elicitsense/` on the author's personal site once
+published. Evaluation report: [docs/eval](docs/eval/README.md).
+
 Built from the systematic mapping study *Emotions in Software Engineering*
 and the multimodal requirements-elicitation prototype MEmoRE (IEEE RE 2023).
 See [docs/SPEC.md](docs/SPEC.md) for the product and technical spec and
