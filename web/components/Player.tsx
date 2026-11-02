@@ -33,6 +33,28 @@ export default function Player({ project, meetings, seek, onPick }: Props) {
     }
   }
   const meeting = meetings.find((m) => m.id === meetingId) ?? meetings[0];
+  const src = `${process.env.NEXT_PUBLIC_BASE_PATH}/demo/${project}/${meeting.audio}`;
+
+  // Load the whole file as a blob so seeking works on any static host, including
+  // servers without HTTP range requests. Each meeting is well under 1 MB.
+  const [blob, setBlob] = useState<{ src: string; url: string } | null>(null);
+  useEffect(() => {
+    let url = "";
+    let cancelled = false;
+    fetch(src)
+      .then((r) => r.blob())
+      .then((b) => {
+        if (cancelled) return;
+        url = URL.createObjectURL(b);
+        setBlob({ src, url });
+      })
+      .catch(() => !cancelled && setBlob({ src, url: src }));
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [src]);
+  const audioUrl = blob?.src === src ? blob.url : undefined;
 
   const current = useMemo(
     () => meeting.segments.find((s) => time >= s.start - 0.05 && time < s.end + 0.4)?.id,
@@ -52,8 +74,13 @@ export default function Player({ project, meetings, seek, onPick }: Props) {
 
   useEffect(() => {
     const id = focus ?? current;
-    if (!id || !list.current) return;
-    list.current.querySelector(`[data-seg="${id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const box = list.current;
+    const el = box?.querySelector<HTMLElement>(`[data-seg="${id}"]`);
+    if (!box || !el) return;
+    // Scroll only the transcript, never the page the reader is on.
+    if (el.offsetTop < box.scrollTop || el.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight) {
+      box.scrollTo({ top: el.offsetTop - box.clientHeight / 3, behavior: "smooth" });
+    }
   }, [focus, current]);
 
   return (
@@ -79,9 +106,9 @@ export default function Player({ project, meetings, seek, onPick }: Props) {
         <span className="faint small"> {meeting.date} · {clock(meeting.duration)}</span>
       </div>
       <audio
-        key={meeting.id}
+        key={audioUrl ?? meeting.id}
         ref={audio}
-        src={`/demo/${project}/${meetings.find((m) => m.id === meeting.id)!.audio}`}
+        src={audioUrl}
         controls
         preload="metadata"
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}

@@ -17,3 +17,11 @@ npm run build    # static site in web/out
 
 Deploy: import the repository on Vercel with `web` as the root directory (the
 build is a static export), or upload `web/out` to any static host.
+
+To publish under a sub-path of another static site (for example a GitHub Pages
+personal site), build with the base path and copy the output:
+
+```bash
+DEMO_BASE_PATH=/demos/elicitsense npm run build
+rsync -a --delete out/ ../../personal-website/demos/elicitsense/
+```
